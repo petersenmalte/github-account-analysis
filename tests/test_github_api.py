@@ -1,12 +1,21 @@
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 from pathlib import Path
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 
 from github_account_analysis.github_api import GitHubClient, collect_public_data, normalize_login
 from github_account_analysis.report import build_report
+
+
+class _RateLimitHeaders:
+    def __init__(self, reset_at: float) -> None:
+        self._reset_at = reset_at
+
+    def get(self, key: str, default=None):
+        return {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": str(self._reset_at)}.get(key, default)
 
 
 class GitHubClientTests(unittest.TestCase):
@@ -32,6 +41,25 @@ class GitHubClientTests(unittest.TestCase):
             self.assertEqual(client.get("/users/alice"), {})
             self.assertIsNone(client.get("/users/bob"))
         self.assertIn("request budget", client.partial_reasons[0])
+
+    def test_rate_limit_backoff_fails_fast_instead_of_blocking_the_handler_thread(self):
+        def rate_limited(request, timeout=None):
+            raise HTTPError(request.full_url, 403, "rate limited", _RateLimitHeaders(time.time() + 3600), None)
+
+        original_next_request_at = GitHubClient._next_request_at
+        GitHubClient._next_request_at = 0.0
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                client = GitHubClient(cache_dir=Path(directory))
+                with patch("github_account_analysis.github_api.urlopen", rate_limited):
+                    self.assertIsNone(client.get("/users/alice"))
+                    start = time.monotonic()
+                    self.assertIsNone(client.get("/users/alice/repos"))
+                    elapsed = time.monotonic() - start
+            self.assertLess(elapsed, 1.0, "a hit rate-limit reset an hour out must not block the request thread")
+            self.assertTrue(any("backoff exceeded" in reason for reason in client.partial_reasons))
+        finally:
+            GitHubClient._next_request_at = original_next_request_at
 
     def test_injected_transport_never_reads_or_writes_default_cache(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {"GAA_CACHE_DIR": directory}):

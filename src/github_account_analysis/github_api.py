@@ -40,6 +40,7 @@ class GitHubClient:
     _limiter_lock = threading.Lock()
     _next_request_at = 0.0
     request_interval_seconds = 0.25
+    max_rate_limit_wait_seconds = 5.0
 
     def __init__(
         self,
@@ -57,14 +58,25 @@ class GitHubClient:
         self.partial_reasons: List[str] = []
 
     @classmethod
-    def _acquire_request_slot(cls) -> None:
-        """Reserve a process-wide request slot before touching GitHub."""
+    def _acquire_request_slot(cls) -> bool:
+        """Reserve a process-wide request slot before touching GitHub.
+
+        Returns False without sleeping when the pending wait (typically a
+        GitHub rate-limit backoff set by _pause_for_rate_limit, which can be
+        up to an hour) exceeds max_rate_limit_wait_seconds. Blocking the HTTP
+        handler thread for that long only produces a proxy/browser timeout
+        with a non-JSON error body; failing fast lets the caller record it as
+        a partial result instead.
+        """
         with cls._limiter_lock:
             now = time.monotonic()
             delay = max(0.0, cls._next_request_at - now)
+            if delay > cls.max_rate_limit_wait_seconds:
+                return False
             cls._next_request_at = max(now, cls._next_request_at) + cls.request_interval_seconds
         if delay:
             time.sleep(delay)
+        return True
 
     @classmethod
     def _pause_for_rate_limit(cls, headers: Any) -> None:
@@ -102,7 +114,10 @@ class GitHubClient:
             self.partial_reasons.append(f"request budget of {self.max_requests} public API calls reached")
             return None
         self.requests += 1
-        self._acquire_request_slot()
+        if not self._acquire_request_slot():
+            self.partial_reasons.append(f"{endpoint}: GitHub rate limit backoff exceeded {self.max_rate_limit_wait_seconds:.0f}s; request skipped")
+            self.provenance.append({"url": url, "cached": False, "status": "rate_limited_skipped"})
+            return None
         try:
             if self.transport:
                 payload = self.transport(url)
