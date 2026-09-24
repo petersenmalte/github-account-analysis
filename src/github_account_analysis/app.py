@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -59,6 +61,26 @@ class ApplicationHandler(BaseHTTPRequestHandler):
     server_version = "GithubAccountAnalysis/0.1"
     max_body_bytes = 2 * 1024 * 1024
 
+    # A public deployment shares one GitHub API budget (and possibly one
+    # GITHUB_TOKEN) across every visitor. Without this, repeated clicks from
+    # a single visitor — let alone several at once — can burn through it for
+    # everyone. This is a simple per-client cooldown, not a security
+    # boundary: client_address may be a reverse proxy's address rather than
+    # the visitor's, which only makes the cooldown more conservative.
+    _rate_limit_lock = threading.Lock()
+    _last_request_at: Dict[str, float] = {}
+    min_seconds_between_requests = float(os.environ.get("GAA_MIN_SECONDS_BETWEEN_REQUESTS", "20"))
+
+    def _client_may_proceed(self) -> bool:
+        client_ip = self.client_address[0]
+        now = time.monotonic()
+        with self._rate_limit_lock:
+            last = self._last_request_at.get(client_ip)
+            if last is not None and now - last < self.min_seconds_between_requests:
+                return False
+            self._last_request_at[client_ip] = now
+        return True
+
     def log_message(self, format: str, *args: object) -> None:
         if os.environ.get("GAA_HTTP_LOG"):
             super().log_message(format, *args)
@@ -99,6 +121,12 @@ class ApplicationHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         route = urlparse(self.path).path
+        if route in ("/api/analyze", "/api/report.pdf") and not self._client_may_proceed():
+            self._json(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                {"error": f"Please wait at least {self.min_seconds_between_requests:.0f}s between analyses on this shared deployment."},
+            )
+            return
         try:
             payload = self._read_json()
             if route == "/api/analyze":

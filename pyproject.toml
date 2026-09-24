@@ -35,3 +35,6 @@ addopts = "-ra"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+github_account_analysis = ["web/*", "templates/*"]
