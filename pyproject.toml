@@ -1,16 +1,37 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "github-account-analysis"
 version = "0.1.0"
-description = "Evidence-bound analysis of public GitHub technical contributions"
+description = "Reproducible, bounded analysis of public GitHub repository and event data."
+readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
+authors = [{name = "github-account-analysis contributors"}]
+dependencies = [
+  "duckdb>=1.1,<2",
+  "jinja2>=3.1,<4",
+  "matplotlib>=3.7,<4",
+  "pypdf>=5,<7",
+  "weasyprint>=62,<70",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8,<9",
+]
+
+[project.scripts]
+github-account-analysis = "github_account_analysis.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.unittest]
-start-directory = "tests"

@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+data/inbox/
+data/state/*.wal
+data/state/*.tmp
+data/state/temporary/
+reports/.staging-*/
+reports/.previous-*/
+site/.staging-*/

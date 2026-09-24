@@ -8,5 +8,5 @@ Apply its delegation criteria for architecture, implementation, independent revi
 and optional QA. Respect project-specific instructions and the user's task scope.
 <!-- engineering-agents:end -->
 
-Project-specific architecture, verification commands, and safety constraints are
-maintained in [docs/engineering-context.md](docs/engineering-context.md).
+Project context and verified commands are documented in
+[`docs/engineering-context.md`](docs/engineering-context.md).

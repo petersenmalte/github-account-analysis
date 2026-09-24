@@ -1,0 +1,9 @@
+{
+  "attempted_at_utc": "2026-09-24T17:07:48Z",
+  "error": "WeasyPrint native libraries are unavailable; PDF generation was not attempted",
+  "last_failed_render_attempt": "reports/last-failed-render-attempt.json",
+  "last_valid_report": null,
+  "schema_version": "report-status/v1",
+  "staleness_note": "The previous valid report was retained; this attempted report was not published.",
+  "status": "failed"
+}

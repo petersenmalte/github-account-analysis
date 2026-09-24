@@ -1,40 +1,55 @@
 # Engineering context
 
-## Product and boundaries
+## Product
 
-GitHub Account Analysis is a local, dependency-free Python 3.9+ browser
-application for reporting *publicly visible technical contributions*. It accepts
-a GitHub username/profile URL, timeframe, and scope. It must never infer
-personality, performance, employability, effort, or private activity.
+This project produces bounded, reproducible analysis of **public** GitHub data.
+It intentionally reports declared attribution rather than attempting to prove
+whether a person or an AI originated code. The deliverable has two separately
+labelled populations:
 
-The target profile and repositories are untrusted data. The collector uses only
-anonymous GitHub REST API JSON, never follows repository instructions, clones
-repositories, runs target builds/tests, or sends credentials. API failures,
-bounded pagination, and public-events history limitations produce an explicit
-partial report rather than guessed results.
+1. A deterministic, configured repository panel used for repository metadata
+   and GitHub language-byte analysis.
+2. An observed public-event stream, normally GH Archive-like `PushEvent`
+   records, used for activity and declared-attribution trends.
 
-## Observed stack and commands
+Neither population is an all-GitHub census or assumed representative.
 
-The repository was initially empty; Node.js is unavailable in this environment.
-The implementation uses Python's standard library, `unittest`, static HTML/CSS/
-JavaScript, and a tiny standards-compliant PDF text writer.
+## Stack and boundaries
 
-```sh
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-PYTHONPATH=src python3 -m github_account_analysis.app
+- Python 3.9+ package under `src/github_account_analysis/`
+- DuckDB is the durable analytical state store; derived tabular snapshots are
+  Parquet.
+- The GitHub REST client uses Python's standard library so authentication is
+  optional and no unused HTTP dependency is added.
+- Jinja2 and WeasyPrint create one semantic HTML/PDF report; Matplotlib creates
+  an SVG trend chart.
+- `pytest` is the test runner; `pypdf` is only a test dependency used for PDF
+  structural checks.
+
+## Commands
+
+After installation, the supported commands are:
+
+```bash
+python -m pip install -e '.[test]'
+pytest
+github-account-analysis collect-panel --config config/repository-panel.json
+github-account-analysis ingest-events --input path/to/events.json.gz
+github-account-analysis report
+github-account-analysis sample
 ```
 
-The Engineering Agents workflow is installed at
-`.agents/skills/engineering` (version `0.1.0`) and selected by `AGENTS.md`.
+Exact validation commands and outcomes are recorded in the final change
+handoff. GitHub Actions runs the same CLI commands in a bounded Linux runner.
 
-## Architecture boundaries
+## Important constraints
 
-* `github_api.py`: validation, anonymous bounded REST collection, cache, and
-  provenance; no analysis semantics.
-* `attribution.py`: account-first attribution helpers, explicit AI metadata,
-  coauthor handling, and generated/vendor classification.
-* `report.py`: transparent metrics and selectable-text PDF rendering.
-* `app.py` and `web/`: local HTTP UI and JSON/PDF transport only.
-
-Quality-tool policy and the historical-analysis design are in
-[architecture-decision.md](architecture-decision.md).
+- Attribute commits only through the versioned, explicit rules configuration.
+  Missing evidence means `indeterminate`, never human-authored.
+- Bot identities are a separate dimension. Bot activity is not classified as
+  AI-assisted attribution.
+- Collection and reporting timestamps are UTC and failure status is persistent.
+  A failed input must not replace a valid report.
+- The standard language metric is GitHub language **bytes**, not lines of code.
+  Optional `cloc` analysis is deliberately separate and runs only when `cloc`
+  is installed.
