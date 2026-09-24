@@ -1,0 +1,16 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# In the Render dashboard: New > Blueprint > select this repository.
+# After the first deploy, set GITHUB_TOKEN under the service's Environment
+# tab (a personal access token with no scopes/permissions is enough — it
+# only raises the public GitHub REST rate limit from 60 to 5000
+# requests/hour; the app never writes to GitHub).
+services:
+  - type: web
+    name: github-account-analysis
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: GITHUB_TOKEN
+        sync: false
