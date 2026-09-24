@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import mimetypes
 import os
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
@@ -16,6 +15,11 @@ from .github_api import GitHubAPIError, GitHubClient, collect_public_data, norma
 from .report import build_report, render_pdf
 
 WEB_ROOT = Path(__file__).resolve().parent / "web"
+WEB_ASSETS = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/app.css": ("app.css", "text/css; charset=utf-8"),
+}
 
 
 def _since(timeframe: str) -> datetime | None:
@@ -76,16 +80,16 @@ class ApplicationHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         route = urlparse(self.path).path
-        filename = "index.html" if route == "/" else route.lstrip("/")
-        path = (WEB_ROOT / filename).resolve()
-        if WEB_ROOT not in path.parents and path != WEB_ROOT:
+        asset = WEB_ASSETS.get(route)
+        if asset is None:
             self._json(HTTPStatus.NOT_FOUND, {"error": "Not found"})
             return
+        filename, content_type = asset
+        path = WEB_ROOT / filename
         if not path.is_file():
             self._json(HTTPStatus.NOT_FOUND, {"error": "Not found"})
             return
-        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        self._send(HTTPStatus.OK, path.read_bytes(), f"{content_type}; charset=utf-8" if content_type.startswith("text/") else content_type)
+        self._send(HTTPStatus.OK, path.read_bytes(), content_type)
 
     def do_POST(self) -> None:  # noqa: N802
         route = urlparse(self.path).path
@@ -94,14 +98,14 @@ class ApplicationHandler(BaseHTTPRequestHandler):
             if route == "/api/analyze":
                 self._json(HTTPStatus.OK, analyze(payload))
             elif route == "/api/report.pdf":
-                document = render_pdf(payload)
+                document = render_pdf(analyze(payload))
                 self._send(HTTPStatus.OK, document, "application/pdf")
             else:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "Not found"})
-        except (ValueError, GitHubAPIError) as error:
-            self._json(HTTPStatus.BAD_REQUEST, {"error": str(error)})
         except json.JSONDecodeError:
             self._json(HTTPStatus.BAD_REQUEST, {"error": "Request body must contain valid JSON."})
+        except (ValueError, GitHubAPIError) as error:
+            self._json(HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
 
 def main() -> None:
