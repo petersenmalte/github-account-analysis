@@ -55,7 +55,12 @@ form.addEventListener("submit", async (event) => {
   button.disabled = true; text(button, "Analyzing…");
   try {
     const response = await fetch("/api/analyze", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: form.username.value, timeframe: form.timeframe.value, scope})});
-    const payload = await response.json();
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (parseError) {
+      throw new Error(`The server returned an unexpected non-JSON response (HTTP ${response.status}). This can happen when a proxy times out a slow request, for example while GitHub's public API rate limit is being waited out. Please wait a few minutes and try again.`);
+    }
     if (!response.ok) throw new Error(payload.error || "Analysis failed.");
     render(payload);
   } catch (error) {
