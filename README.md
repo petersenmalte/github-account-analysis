@@ -19,6 +19,10 @@ The result exposes the exact config, data-source URLs, partial-analysis reasons,
 and local tool versions. Use **Download selectable-text PDF** for a report whose
 text and source links are selectable/searchable.
 
+**Do not open** `src/github_account_analysis/web/index.html` by double-clicking
+it or as a `file://` URL. The browser interface needs the local Python API; use
+the `http://127.0.0.1:8000` address printed after starting the server.
+
 To run the automated checks:
 
 ```sh
