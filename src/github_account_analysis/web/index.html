@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Evidence-bound analysis of public GitHub technical contributions">
+    <title>GitHub Account Analysis</title>
+    <link rel="stylesheet" href="app.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">PUBLIC EVIDENCE ONLY</p>
+        <h1>GitHub Account Analysis</h1>
+        <p>Explore publicly visible technical contributions without judgments about personality, performance, or employability.</p>
+      </header>
+      <section class="card" aria-labelledby="analysis-heading">
+        <h2 id="analysis-heading">Analysis request</h2>
+        <form id="analysis-form">
+          <label for="username">GitHub username or profile URL</label>
+          <input id="username" name="username" required placeholder="octocat or https://github.com/octocat" autocomplete="off">
+          <fieldset>
+            <legend>Timeframe</legend>
+            <label><input type="radio" name="timeframe" value="30_days"> Last 30 days</label>
+            <label><input type="radio" name="timeframe" value="90_days"> Last 90 days</label>
+            <label><input type="radio" name="timeframe" value="1_year" checked> Last year</label>
+            <label><input type="radio" name="timeframe" value="all_available"> All API-available history</label>
+          </fieldset>
+          <fieldset>
+            <legend>Scope</legend>
+            <label><input type="checkbox" name="scope" value="owned" checked> Public repositories owned by this account</label>
+            <label><input type="checkbox" name="scope" value="contributed" checked> Public contributions to other repositories</label>
+          </fieldset>
+          <button type="submit">Analyze public profile</button>
+        </form>
+        <p class="notice">No credentials are used. GitHub API limits and public-event history can make results partial; this is shown in the report.</p>
+      </section>
+      <section id="result" hidden aria-live="polite"></section>
+    </main>
+    <template id="report-template">
+      <article class="card report">
+        <div class="report-actions">
+          <div><p class="eyebrow">MACHINE-READABLE RESULT</p><h2 class="subject"></h2></div>
+          <button class="pdf">Download selectable-text PDF</button>
+        </div>
+        <p class="partial"></p>
+        <h3>Attributable public activity</h3>
+        <dl class="metrics"></dl>
+        <h3>Explicit AI metadata</h3>
+        <p class="ai"></p>
+        <h3>Quality measurement</h3>
+        <p class="quality"></p>
+        <h3>Boundaries and uncertainty</h3>
+        <ul class="uncertainty"></ul>
+        <details><summary>Machine-readable report, provenance, configuration, and tool versions</summary><pre></pre></details>
+      </article>
+    </template>
+    <script src="app.js"></script>
+  </body>
+</html>
