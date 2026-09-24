@@ -473,7 +473,7 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
             "timeframe": request.get("timeframe", "all_available"),
             "scope": sorted(request.get("scope") or []),
             "public_data_only": True,
-            "credentials_used": False,
+            "credentials_used": bool(request.get("credentials_used", False)),
             "target_code_executed": False,
             "api_request_budget": request.get("api_request_budget", 40),
         },

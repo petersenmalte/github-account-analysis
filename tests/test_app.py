@@ -16,7 +16,7 @@ class AppInputTests(unittest.TestCase):
             analyze({"username": "octocat", "scope": ["owned", "private"]})
 
     def test_analyze_uses_validated_request_payload(self):
-        client = type("StubClient", (), {"max_requests": 17})()
+        client = type("StubClient", (), {"max_requests": 17, "token": None})()
         collected = {
             "profile": {"login": "octocat", "html_url": "https://github.com/octocat"},
             "repos": [],
@@ -47,6 +47,27 @@ class AppInputTests(unittest.TestCase):
                 "timeframe": "30_days",
                 "scope": ["owned"],
                 "api_request_budget": 17,
+                "credentials_used": False,
             },
             collected,
         )
+
+    def test_analyze_reports_when_a_token_was_used(self):
+        client = type("StubClient", (), {"max_requests": 40, "token": "ghp_example"})()
+        collected = {
+            "profile": {"login": "octocat", "html_url": "https://github.com/octocat"},
+            "repos": [],
+            "commits": [],
+            "pulls": [],
+            "provenance": [],
+            "partial_reasons": [],
+        }
+        report = {"subject": {"login": "octocat"}, "metrics": {}}
+
+        with (
+            patch("github_account_analysis.app.collect_public_data", return_value=collected),
+            patch("github_account_analysis.app.build_report", return_value=report) as build,
+        ):
+            analyze({"username": "octocat", "scope": ["owned"]}, client=client)
+
+        self.assertTrue(build.call_args.args[0]["credentials_used"])

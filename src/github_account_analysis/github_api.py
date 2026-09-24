@@ -48,11 +48,16 @@ class GitHubClient:
         transport: Callable[[str], Mapping[str, Any] | List[Any]] | None = None,
         max_requests: int = 40,
         timeout_seconds: int = 12,
+        token: Optional[str] = None,
     ) -> None:
         self.cache_dir = cache_dir or Path(os.environ.get("GAA_CACHE_DIR", ".cache/github-account-analysis"))
         self.transport = transport
         self.max_requests = max_requests
         self.timeout_seconds = timeout_seconds
+        # Optional: raises the GitHub REST rate limit from 60/hour (anonymous) to
+        # 5000/hour. Never logged; only whether one was used is reported (see
+        # report.py's config.credentials_used).
+        self.token = token if token is not None else os.environ.get("GITHUB_TOKEN")
         self.requests = 0
         self.provenance: List[Dict[str, Any]] = []
         self.partial_reasons: List[str] = []
@@ -122,7 +127,10 @@ class GitHubClient:
             if self.transport:
                 payload = self.transport(url)
             else:
-                request = Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT})
+                headers = {"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT}
+                if self.token:
+                    headers["Authorization"] = f"Bearer {self.token}"
+                request = Request(url, headers=headers)
                 with urlopen(request, timeout=self.timeout_seconds) as response:  # nosec B310: API_BASE is constant
                     payload = json.loads(response.read().decode("utf-8"))
             if self.transport is None:

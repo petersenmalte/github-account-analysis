@@ -16,7 +16,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run standard-library test suite
+      - name: Install dependencies
+        run: python -m pip install -e '.[test]'
+      - name: Run test suite
         env:
           PYTHONPATH: src
-        run: python -m unittest discover -s tests -v
+        run: python -m pytest -v

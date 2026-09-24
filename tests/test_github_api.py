@@ -1,3 +1,4 @@
+import os
 import tempfile
 import time
 import unittest
@@ -41,6 +42,33 @@ class GitHubClientTests(unittest.TestCase):
             self.assertEqual(client.get("/users/alice"), {})
             self.assertIsNone(client.get("/users/bob"))
         self.assertIn("request budget", client.partial_reasons[0])
+
+    def test_token_is_sent_as_a_bearer_authorization_header(self):
+        seen_requests = []
+
+        def capture(request, timeout=None):
+            seen_requests.append(request)
+            raise URLError("stop before any real network call")
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = GitHubClient(cache_dir=Path(directory), token="ghp_example")
+            with patch("github_account_analysis.github_api.urlopen", capture):
+                client.get("/users/alice")
+        self.assertEqual(seen_requests[0].get_header("Authorization"), "Bearer ghp_example")
+
+    def test_no_token_means_no_authorization_header(self):
+        seen_requests = []
+
+        def capture(request, timeout=None):
+            seen_requests.append(request)
+            raise URLError("stop before any real network call")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("GITHUB_TOKEN", None)
+            client = GitHubClient(cache_dir=Path(directory))
+            with patch("github_account_analysis.github_api.urlopen", capture):
+                client.get("/users/alice")
+        self.assertIsNone(seen_requests[0].get_header("Authorization"))
 
     def test_rate_limit_backoff_fails_fast_instead_of_blocking_the_handler_thread(self):
         def rate_limited(request, timeout=None):
