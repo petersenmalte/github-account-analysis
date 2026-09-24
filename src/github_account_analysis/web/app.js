@@ -19,7 +19,7 @@ function metricRows(metrics) {
     ["Monthly activity", Object.entries(metrics.monthly_activity).map(([month, count]) => `${month}: ${count}`).join(", ") || "Not available"],
   ];
 }
-function render(report) {
+function render(report, requestPayload) {
   const fragment = template.content.cloneNode(true);
   text(fragment.querySelector(".subject"), `@${report.subject.login}`);
   const partial = fragment.querySelector(".partial");
@@ -37,10 +37,14 @@ function render(report) {
   for (const item of report.uncertainty) { const row = document.createElement("li"); text(row, item); list.append(row); }
   text(fragment.querySelector("pre"), JSON.stringify(report, null, 2));
   fragment.querySelector(".pdf").addEventListener("click", async () => {
-    const response = await fetch("/api/report.pdf", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(report)});
-    if (!response.ok) { throw new Error("PDF generation failed."); }
-    const link = Object.assign(document.createElement("a"), {href: URL.createObjectURL(await response.blob()), download: `github-account-analysis-${report.subject.login}.pdf`});
-    link.click(); URL.revokeObjectURL(link.href);
+    try {
+      const response = await fetch("/api/report.pdf", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(requestPayload)});
+      if (!response.ok) { throw new Error("PDF generation failed."); }
+      const link = Object.assign(document.createElement("a"), {href: URL.createObjectURL(await response.blob()), download: `github-account-analysis-${report.subject.login}.pdf`});
+      link.click(); URL.revokeObjectURL(link.href);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : "PDF generation failed.");
+    }
   });
   result.replaceChildren(fragment); result.hidden = false;
 }
@@ -52,9 +56,10 @@ form.addEventListener("submit", async (event) => {
   }
   const button = form.querySelector("button");
   const scope = [...form.querySelectorAll('input[name="scope"]:checked')].map(input => input.value);
+  const requestPayload = {username: form.username.value, timeframe: form.timeframe.value, scope};
   button.disabled = true; text(button, "Analyzing…");
   try {
-    const response = await fetch("/api/analyze", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: form.username.value, timeframe: form.timeframe.value, scope})});
+    const response = await fetch("/api/analyze", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(requestPayload)});
     let payload;
     try {
       payload = await response.json();
@@ -62,7 +67,7 @@ form.addEventListener("submit", async (event) => {
       throw new Error(`The server returned an unexpected non-JSON response (HTTP ${response.status}). This can happen when a proxy times out a slow request, for example while GitHub's public API rate limit is being waited out. Please wait a few minutes and try again.`);
     }
     if (!response.ok) throw new Error(payload.error || "Analysis failed.");
-    render(payload);
+    render(payload, requestPayload);
   } catch (error) {
     showError(error instanceof Error ? error.message : "The analysis request failed.");
   } finally {

@@ -235,6 +235,3 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
         "partial_reasons": client.partial_reasons,
         "collected_at": datetime.now(timezone.utc).isoformat(),
     }
-    _limiter_lock = threading.Lock()
-    _next_request_at = 0.0
-    request_interval_seconds = 0.25

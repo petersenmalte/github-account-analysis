@@ -1,0 +1,114 @@
+name: Collect and publish public GitHub analysis
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: github-public-analysis
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  collect-and-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    outputs:
+      publish: ${{ steps.collect.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install project
+        run: python -m pip install --no-cache-dir .
+      - id: collect
+        name: Collect a bounded UTC observation and render
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -u -o pipefail
+          mkdir -p data/inbox
+          start_utc="$(date -u -d 'yesterday 00:00' +'%Y-%m-%dT%H:00:00Z')"
+          end_utc="$(date -u -d "${start_utc} + 1 hour" +'%Y-%m-%dT%H:00:00Z')"
+          archive_name="$(date -u -d "${start_utc}" +'%Y-%m-%d-%-H')"
+          event_path="data/inbox/${archive_name}.json.gz"
+          status=0
+
+          github-account-analysis collect-panel --config config/repository-panel.json > panel-result.json || status=$?
+          if [ "$status" -eq 0 ]; then
+            curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+              --connect-timeout 30 --max-time 600 --max-filesize 262144000 \
+              "https://data.gharchive.org/${archive_name}.json.gz" -o "$event_path"
+            download_status=$?
+            if [ "$download_status" -ne 0 ]; then
+              github-account-analysis ingest-events --input "$event_path" \
+                --source-url "https://data.gharchive.org/${archive_name}.json.gz" \
+                --window-start-utc "$start_utc" --window-end-utc "$end_utc" \
+                --panel-repositories-only || true
+              status="$download_status"
+            fi
+          fi
+          if [ "$status" -eq 0 ]; then
+            github-account-analysis ingest-events --input "$event_path" \
+              --source-url "https://data.gharchive.org/${archive_name}.json.gz" \
+              --window-start-utc "$start_utc" --window-end-utc "$end_utc" \
+              --panel-repositories-only \
+              > event-result.json || status=$?
+          fi
+
+          if [ "$status" -ne 0 ]; then
+            git add data/state/analytics.duckdb data/derived || true
+            if ! git diff --cached --quiet; then
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git commit -m "Record public-data collection failure"
+              git push
+            fi
+            exit "$status"
+          fi
+
+          changed="$(python -c 'import json; print(str(json.load(open("event-result.json"))["changed"]).lower())')"
+          if [ "$changed" != "true" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          github-account-analysis report > report-result.json
+          github-account-analysis validate-report --pdf reports/latest/report.pdf > pdf-validation.json
+          git add data/state/analytics.duckdb data/derived reports site
+          if git diff --cached --quiet; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update bounded public GitHub analysis"
+          git push
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+      - name: Upload validated Pages artifact
+        if: steps.collect.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-pages:
+    needs: collect-and-render
+    if: needs.collect-and-render.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
