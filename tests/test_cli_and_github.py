@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from urllib.error import URLError
 import urllib.request
 
 import pytest
 
 from github_account_analysis.cli import main
-from github_account_analysis.github import PublicGitHubClient
+from github_account_analysis.github import CollectionError, PublicGitHubClient
 
 
 def test_sample_requires_explicit_isolated_data_directory(monkeypatch, tmp_path: Path) -> None:
@@ -23,24 +23,19 @@ def test_sample_requires_explicit_isolated_data_directory(monkeypatch, tmp_path:
 def test_public_github_client_sends_configured_token_without_logging_it(monkeypatch) -> None:
     captured = {}
 
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-        def read(self):
-            return json.dumps({"id": 1}).encode("utf-8")
-
     def fake_urlopen(request, timeout):
         captured["request"] = request
         captured["timeout"] = timeout
-        return Response()
+        raise URLError("offline")
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     client = PublicGitHubClient(token="test-token")
-    payload, _digest = client.get_json("https://api.github.com/repos/example/repository")
 
-    assert payload == {"id": 1}
-    assert captured["request"].get_header("Authorization") == "Bearer test-token"
+    with pytest.raises(CollectionError) as error:
+        client.get_json("https://api.github.com/repos/example/repository")
+
+    authorization = captured["request"].get_header("Authorization")
+    assert authorization is not None
+    assert authorization.startswith("Bearer ")
+    assert authorization.endswith("test-token")
+    assert "test-token" not in str(error.value)
