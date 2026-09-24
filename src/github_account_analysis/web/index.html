@@ -18,7 +18,7 @@
         <h2 id="analysis-heading">Analysis request</h2>
         <form id="analysis-form">
           <label for="username">GitHub username or profile URL</label>
-          <input id="username" name="username" required placeholder="octocat or https://github.com/octocat" autocomplete="off">
+          <input id="username" name="username" required placeholder="petersenmalte or https://github.com/petersenmalte" autocomplete="off">
           <fieldset>
             <legend>Timeframe</legend>
             <label><input type="radio" name="timeframe" value="30_days"> Last 30 days</label>
@@ -33,7 +33,7 @@
           </fieldset>
           <button type="submit">Analyze public profile</button>
         </form>
-        <p class="notice">No credentials are used. GitHub API limits and public-event history can make results partial; this is shown in the report.</p>
+        <p class="notice">Only public GitHub data is analyzed; an optional server-side token, when configured, is never displayed. GitHub API limits and public-event history can make results partial; this is shown in the report.</p>
       </section>
       <section id="result" hidden aria-live="polite" role="region" aria-label="Analysis result"></section>
     </main>
@@ -46,8 +46,14 @@
         <p class="partial"></p>
         <h3>Attributable public activity</h3>
         <dl class="metrics"></dl>
+        <h3>Monthly activity</h3>
+        <div class="chart chart-monthly"></div>
+        <h3>Languages in owned repositories</h3>
+        <div class="chart chart-languages"></div>
         <h3>Explicit AI metadata</h3>
         <p class="ai"></p>
+        <h3>Heuristic AI-tool mentions</h3>
+        <div class="heuristic"></div>
         <h3>Quality measurement</h3>
         <p class="quality"></p>
         <h3>Boundaries and uncertainty</h3>

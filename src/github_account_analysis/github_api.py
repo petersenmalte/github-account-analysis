@@ -46,7 +46,12 @@ class GitHubClient:
         self,
         cache_dir: Path | None = None,
         transport: Callable[[str], Mapping[str, Any] | List[Any]] | None = None,
-        max_requests: int = 40,
+        # 40 was sized for anonymous use (60 req/hour); it left even a
+        # modest owned-repository count partial before a per-repo language
+        # fetch was added. With a GITHUB_TOKEN (5000 req/hour) and the
+        # per-client cooldown in app.py, 120 is still bounded but covers a
+        # realistic profile end to end.
+        max_requests: int = 120,
         timeout_seconds: int = 12,
         token: Optional[str] = None,
     ) -> None:
@@ -187,6 +192,7 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
     events = client.pages(f"/users/{login}/events/public") if "contributed" in scope_set else []
     commits: List[Dict[str, Any]] = []
     pulls: List[Dict[str, Any]] = []
+    repo_languages: Dict[str, Dict[str, int]] = {}
     if "owned" in scope_set:
         for repo in repos:
             name = repo.get("full_name")
@@ -203,6 +209,9 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
                     and _in_timeframe(str(pull.get("created_at", "")), since)
                 ):
                     pulls.append({**pull, "repository": name, "ownership": "owned"})
+            languages = client.get(f"/repos/{name}/languages")
+            if isinstance(languages, Mapping):
+                repo_languages[name] = {str(key): int(value) for key, value in languages.items() if isinstance(value, (int, float))}
     if "contributed" in scope_set:
         for event in events:
             created = str(event.get("created_at", ""))
@@ -237,6 +246,7 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
     return {
         "profile": dict(profile),
         "repos": [dict(repo) for repo in repos],
+        "repo_languages": repo_languages,
         "commits": commits,
         "pulls": pulls,
         "provenance": client.provenance,

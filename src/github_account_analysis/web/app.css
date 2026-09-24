@@ -9,4 +9,9 @@ fieldset input { width: auto; margin-right: .5rem; } button { background: #215ac
 button:focus-visible, input:focus-visible { outline: 3px solid #2b5ec5; outline-offset: 2px; }
 button:disabled { opacity: .6; } .notice, .quality { color: #516073; font-size: .92rem; } .warning, .error { background: #fff3d9; border-left: 4px solid #a96700; padding: .75rem; } .error { color: #7d1622; border-color: #b42335; }
 .report-actions { align-items: center; display: flex; gap: 1rem; justify-content: space-between; } dl.metrics { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr; gap: .6rem 1rem; } dt { font-weight: 700; } dd { margin: 0; } pre { background: #101828; border-radius: 8px; color: #e6edf7; max-height: 28rem; overflow: auto; padding: 1rem; white-space: pre-wrap; word-break: break-word; }
+.chart { background: #f7f9fc; border: 1px solid #dbe3f0; border-radius: 10px; padding: .75rem; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .muted { color: #627d98; margin: .5rem 0; }
+.heuristic .caveat { background: #fff3d9; border-left: 3px solid #a96700; color: #7d1622; font-size: .85rem; padding: .5rem .75rem; margin: 0 0 .5rem; }
+.heuristic ul { margin: .4rem 0 0; padding-left: 1.2rem; }
 @media (max-width: 600px) { main { padding-top: 2rem; } .report-actions { align-items: flex-start; flex-direction: column; } dl.metrics { grid-template-columns: 1fr; gap: .2rem; } dd { margin-bottom: .6rem; } }

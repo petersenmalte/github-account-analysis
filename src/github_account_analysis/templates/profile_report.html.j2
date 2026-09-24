@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Public GitHub account analysis — @{{ report.subject.login }}</title>
+  <style>{{ font_face }}
+@page {
+  size: A4;
+  margin: 15mm;
+  @bottom-center {
+    content: "github-account-analysis · @{{ report.subject.login }} · " counter(page) " / " counter(pages);
+    font-family: "Analysis Sans";
+    font-size: 8pt;
+    color: #898781;
+  }
+}
+* { box-sizing: border-box; }
+body { color: #172033; font-family: "Analysis Sans", sans-serif; font-size: 9.5pt; line-height: 1.42; }
+h1 { color: #102a43; font-size: 23pt; line-height: 1.15; margin: 0 0 4pt; }
+h2 { color: #102a43; font-size: 14pt; margin: 16pt 0 7pt; }
+h3 { color: #243b53; font-size: 10.5pt; margin: 9pt 0 4pt; }
+p, li { margin-top: 0; }
+a { color: #005cc5; overflow-wrap: anywhere; }
+.subtitle { color: #486581; margin: 0 0 4pt; }
+.meta { color: #627d98; font-size: 8.5pt; margin: 0 0 10pt; }
+.notice { background: #fff3cd; border: 1px solid #d39e00; padding: 7pt; margin: 8pt 0; }
+.metric-grid { display: flex; flex-wrap: wrap; gap: 6pt; margin: 8pt 0; }
+.metric { background: #f0f4f8; border-left: 3pt solid #2a78d6; min-width: 22%; padding: 6pt 7pt; }
+.metric span { color: #627d98; font-size: 7.6pt; }
+.metric strong { display: block; font-size: 15pt; color: #102a43; }
+table { border-collapse: collapse; font-size: 8pt; margin: 6pt 0 10pt; width: 100%; }
+th, td { border: 1px solid #bcccdc; padding: 3.5pt; text-align: left; vertical-align: top; }
+th { background: #d9e2ec; }
+.muted { color: #627d98; }
+.caveat { color: #7d1622; font-size: 8pt; font-style: italic; margin: 0 0 6pt; }
+.chart { max-width: 100%; width: 100%; margin: 4pt 0 8pt; }
+.section { break-inside: avoid-page; }
+.artifact-table { break-inside: auto; }
+.artifact-table tr { break-inside: avoid; }
+  </style>
+</head>
+<body>
+  <h1>Public GitHub Account Analysis</h1>
+  <p class="subtitle">@{{ report.subject.login }}{% if report.subject.public_profile_name %} — {{ report.subject.public_profile_name }}{% endif %} · <a href="{{ report.subject.profile_url }}">{{ report.subject.profile_url }}</a></p>
+  <p class="meta">Generated {{ report.generated_at }} (UTC) · Report ID {{ report.report_id }} · Timeframe: {{ report.config.timeframe }} · Scope: {{ report.config.scope|join(', ') or 'none' }} · Credentials used: {{ "yes" if report.config.credentials_used else "no" }}</p>
+
+  {% if report.partial %}
+  <div class="notice">
+    <strong>Partial analysis.</strong>
+    <ul>{% for reason in report.partial_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <p>Only public GitHub API information was analyzed. No credentials beyond an optional read-only token, private activity, external identity research, target builds, or target tests were used.</p>
+
+  <div class="section">
+    <h2>Attributable public activity</h2>
+    <div class="metric-grid">
+      <div class="metric"><span>Attributable commits</span><strong>{{ report.metrics.attributable_commits }}</strong></div>
+      <div class="metric"><span>Opened pull requests</span><strong>{{ report.metrics.opened_pull_requests }}</strong></div>
+      <div class="metric"><span>Merged pull requests</span><strong>{{ report.metrics.merged_pull_requests }}</strong></div>
+      <div class="metric"><span>Owned repositories</span><strong>{{ report.metrics.owned_repositories }}</strong></div>
+      <div class="metric"><span>Contributed repositories</span><strong>{{ report.metrics.contributed_repositories }}</strong></div>
+      <div class="metric"><span>Source change volume</span><strong>+{{ report.metrics.code_change_volume.added_lines }} / -{{ report.metrics.code_change_volume.removed_lines }}</strong></div>
+    </div>
+    <p class="muted">Change volume is diff line volume, not productivity, effort, or unique authored code. Generated/vendor lines excluded: +{{ report.metrics.code_change_volume.excluded_generated_vendor_added_lines }} / -{{ report.metrics.code_change_volume.excluded_generated_vendor_removed_lines }}.</p>
+  </div>
+
+  <div class="section">
+    <h2>Monthly activity</h2>
+    <img class="chart" src="{{ monthly_chart }}" alt="Bar chart of attributable commits and pull requests per month">
+  </div>
+
+  <div class="section">
+    <h2>Languages in owned repositories</h2>
+    <p class="muted">{{ report.metrics.languages_in_owned_repositories.byte_weighted_basis }}</p>
+    <img class="chart" src="{{ language_chart }}" alt="Bar chart of byte-weighted programming language share across owned repositories">
+    {% if report.metrics.languages_in_owned_repositories.repositories_without_measured_code %}
+    <p class="muted">{{ report.metrics.languages_in_owned_repositories.repositories_without_measured_code }} owned repositor{{ "y has" if report.metrics.languages_in_owned_repositories.repositories_without_measured_code == 1 else "ies have" }} no measured code and are excluded from this chart.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>Explicit AI metadata</h2>
+    <p class="muted">Only an explicit <code>AI-Classification</code> trailer or attributable PR metadata qualifies. No AI-written-code percentage is inferred.</p>
+    <div class="metric-grid">
+      <div class="metric"><span>Explicitly AI-assisted (A)</span><strong>{{ report.ai_metadata.classes.A.count }} ({{ report.ai_metadata.classes.A.percent if report.ai_metadata.classes.A.percent is not none else "n/a" }}%)</strong></div>
+      <div class="metric"><span>Explicitly human declared (B)</span><strong>{{ report.ai_metadata.classes.B.count }} ({{ report.ai_metadata.classes.B.percent if report.ai_metadata.classes.B.percent is not none else "n/a" }}%)</strong></div>
+      <div class="metric"><span>Undetermined (C)</span><strong>{{ report.ai_metadata.classes.C.count }} ({{ report.ai_metadata.classes.C.percent if report.ai_metadata.classes.C.percent is not none else "n/a" }}%)</strong></div>
+      <div class="metric"><span>Bots (separate dimension)</span><strong>{{ report.ai_metadata.bots }}</strong></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Heuristic AI-tool mentions</h2>
+    <p class="caveat">{{ report.heuristic_ai_signals.caveat }}</p>
+    <p>Denominator: {{ report.heuristic_ai_signals.denominator }} non-bot artifacts. Artifacts with any tool mention: {{ report.heuristic_ai_signals.artifacts_with_any_mention }} ({{ report.heuristic_ai_signals.percent_with_any_mention if report.heuristic_ai_signals.percent_with_any_mention is not none else "n/a" }}%).</p>
+    {% if report.heuristic_ai_signals.by_tool %}
+    <table>
+      <thead><tr><th>Mentioned tool</th><th>Artifacts</th></tr></thead>
+      <tbody>{% for tool, count in report.heuristic_ai_signals.by_tool.items() %}
+        <tr><td>{{ tool }}</td><td>{{ count }}</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% else %}
+    <p class="muted">No known AI-tool name or footer marker was found in any commit message or pull-request body.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>Quality measurement</h2>
+    <p class="muted">{{ report.quality.repository_state.reason }} Security, maintainability/complexity, duplication, rule violations, and coverage are each <strong>not measured</strong> unless a separate safe, version-pinned static-analysis run is configured.</p>
+  </div>
+
+  <h2>Artifacts ({{ report.artifacts|length }})</h2>
+  <p class="muted">Every attributable commit and pull request behind the metrics above, in collection order.</p>
+  <table class="artifact-table">
+    <thead><tr><th>Type</th><th>Repository</th><th>Date</th><th>Ownership</th><th>Explicit</th><th>Heuristic mentions</th><th>Source</th></tr></thead>
+    <tbody>{% for item in report.artifacts %}
+      <tr>
+        <td>{{ item.type }}{% if item.type == "pull_request" %} #{{ item.number }}{% if item.merged %} (merged){% endif %}{% endif %}</td>
+        <td>{{ item.repository }}</td>
+        <td>{{ item.date }}</td>
+        <td>{{ item.ownership }}</td>
+        <td>{{ item.ai_classification }}</td>
+        <td>{{ item.heuristic_ai_mentions|join(', ') if item.heuristic_ai_mentions else "—" }}</td>
+        <td><a href="{{ item.source_url }}">{{ item.sha[:8] if item.type == "commit" and item.sha else "view" }}</a></td>
+      </tr>
+    {% else %}<tr><td colspan="7">No attributable artifacts were found for this timeframe and scope.</td></tr>{% endfor %}</tbody>
+  </table>
+
+  <h2>Uncertainty and exclusions</h2>
+  <ul>
+    {% for statement in report.uncertainty %}<li>{{ statement }}</li>{% endfor %}
+    {% for item in report.deduplication_exclusions %}<li>Excluded duplicate {{ item.sha or item.artifact }}: {{ item.reason }}</li>{% endfor %}
+  </ul>
+
+  <h2>Source links</h2>
+  <table>
+    <thead><tr><th>URL</th><th>Cached</th><th>Status</th></tr></thead>
+    <tbody>{% for entry in report.provenance %}
+      <tr><td><a href="{{ entry.url }}">{{ entry.url }}</a></td><td>{{ "yes" if entry.cached else "no" }}</td><td>{{ entry.status }}</td></tr>
+    {% else %}<tr><td colspan="3">No provenance recorded.</td></tr>{% endfor %}</tbody>
+  </table>
+
+  <p class="meta">github-account-analysis {{ report.tool_versions.github_account_analysis }} · Python {{ report.tool_versions.python }}</p>
+</body>
+</html>

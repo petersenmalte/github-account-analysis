@@ -7,6 +7,7 @@ from github_account_analysis.attribution import (
     DECLARED_HUMAN,
     INDETERMINATE,
     classify_commit,
+    heuristic_ai_mentions,
 )
 
 
@@ -72,3 +73,21 @@ def test_only_configured_exact_coauthor_declaration_is_accepted(rules) -> None:
 
     assert accepted.declared_attribution == DECLARED_AI
     assert arbitrary.declared_attribution == INDETERMINATE
+
+
+def test_heuristic_ai_mentions_are_a_loose_signal_not_a_classification() -> None:
+    assert heuristic_ai_mentions("Fix bug\n\n🤖 Generated with Claude Code") == [
+        "Claude",
+        "Generic AI-tool footer marker",
+    ]
+    assert heuristic_ai_mentions("Refactor module for readability") == []
+    assert heuristic_ai_mentions("", pr_body="Reviewed with GitHub Copilot suggestions") == [
+        "GitHub Copilot"
+    ]
+
+
+def test_heuristic_ai_mentions_do_not_match_unrelated_common_words() -> None:
+    # "cursor" alone is a common UI word; only the specific "cursor ai"
+    # phrasing for the Cursor tool should match, to keep false positives down.
+    assert heuristic_ai_mentions("Move the cursor to the end of the line") == []
+    assert heuristic_ai_mentions("Fixed the cursor ai integration") == ["Cursor"]

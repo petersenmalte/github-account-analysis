@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import io
 import json
 from pathlib import Path
 import unittest
 
 import pytest
+from pypdf import PdfReader
 
 from github_account_analysis.ingest import ingest_event_file
 from github_account_analysis.report import (
@@ -189,6 +191,19 @@ class LegacyReportTests(unittest.TestCase):
         self.assertEqual(report["ai_metadata"]["classes"]["C"]["count"], 1)
         self.assertEqual(report["ai_metadata"]["bots"], 1)
 
+    def test_heuristic_ai_signals_are_reported_separately_from_explicit_declarations(self):
+        mentioned = legacy_commit(sha="f" * 40, message="Fix bug\n\n🤖 Generated with Claude Code")
+        unmentioned = legacy_commit(sha="a" * 40, message="Plain change")
+        report = self.report(commits=[mentioned, unmentioned], pulls=[])
+        signals = report["heuristic_ai_signals"]
+        self.assertEqual(signals["denominator"], 2)
+        self.assertEqual(signals["artifacts_with_any_mention"], 1)
+        self.assertEqual(signals["percent_with_any_mention"], 50.0)
+        self.assertEqual(signals["by_tool"]["Claude"], 1)
+        self.assertIn("NOT verified code origin", signals["caveat"])
+        # The explicit, strict metric is unaffected by the heuristic match.
+        self.assertEqual(report["ai_metadata"]["classes"]["C"]["count"], 2)
+
     def test_generated_and_vendor_change_volume_is_separate(self):
         files = [
             {"filename": "src/code.py", "additions": 4, "deletions": 1},
@@ -214,15 +229,20 @@ class LegacyReportTests(unittest.TestCase):
         )
         self.assertIn("Representative historical states", report["quality"]["historical_view"]["reason"])
 
+    @pytest.mark.skipif(not _renderer_available(), reason="WeasyPrint native libraries unavailable")
     def test_partial_report_and_pdf_have_selectable_source_text(self):
         report = self.report(partial_reasons=["rate limit exhausted"])
         document = render_pdf(report)
         lines = "\n".join(report_lines(report))
         self.assertTrue(report["partial"])
         self.assertIn("https://api.github.com/users/alice", lines)
-        self.assertTrue(document.startswith(b"%PDF-1.4"))
-        self.assertIn(b"Source links", document)
-        self.assertIn(b"https://api.github.com/users/alice", document)
+        self.assertTrue(document.startswith(b"%PDF"))
+
+        reader = PdfReader(io.BytesIO(document))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        self.assertIn("Source links", text)
+        self.assertIn("https://api.github.com/users/alice", text)
+        self.assertIn("rate limit exhausted", text)
 
     def test_monthly_and_yearly_activity_use_artifact_dates(self):
         report = self.report()
