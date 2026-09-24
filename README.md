@@ -40,6 +40,35 @@ pytest
 The bundled `examples/synthetic/` fixture is only a demonstrator. Its report
 has a synthetic banner and must never be described as measured GitHub data.
 
+## Single-profile browser analyzer
+
+For an interactive, one-account report (rather than the fixed repository
+panel below), run the local web UI:
+
+```bash
+python -m pip install -e '.[test]'
+PYTHONPATH=src python3 -m github_account_analysis.app
+# Open http://127.0.0.1:8000
+```
+
+Enter a GitHub username or profile URL, choose a timeframe and scope, and
+click **Analyze public profile**. By default this only makes anonymous
+GitHub REST API requests, which GitHub caps at 60 requests/hour/IP; an
+account with several owned repositories can exhaust that within one run and
+the report comes back `"partial": true` with `"... request skipped"` reasons
+listed under `partial_reasons`. Set `GITHUB_TOKEN` to a
+[personal access token](https://docs.github.com/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+(no scopes needed for public data) before starting the server to raise the
+limit to 5000 requests/hour:
+
+```bash
+export GITHUB_TOKEN=github_pat_...  # never printed or included in the report
+PYTHONPATH=src python3 -m github_account_analysis.app
+```
+
+The report's `config.credentials_used` field always reflects whether a token
+was used for that run.
+
 ## Real public-data run
 
 The supplied panel is a small, fixed list of public repositories, not a

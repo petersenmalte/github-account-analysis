@@ -42,7 +42,13 @@ def analyze(payload: Mapping[str, Any], client: GitHubClient | None = None) -> D
     api_client = client or GitHubClient()
     data = collect_public_data(username, _since(timeframe), scope, api_client)
     return build_report(
-        {"username": username, "timeframe": timeframe, "scope": scope, "api_request_budget": api_client.max_requests},
+        {
+            "username": username,
+            "timeframe": timeframe,
+            "scope": scope,
+            "api_request_budget": api_client.max_requests,
+            "credentials_used": bool(api_client.token),
+        },
         data,
     )
 
