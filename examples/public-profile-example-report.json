@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "example": true,
+  "subject": {
+    "login": "public-profile-fixture",
+    "profile_url": "https://github.com/public-profile-fixture"
+  },
+  "config": {
+    "timeframe": "1_year",
+    "scope": ["owned", "contributed"],
+    "public_data_only": true,
+    "credentials_used": false,
+    "target_code_executed": false
+  },
+  "metrics": {
+    "attributable_commits": 1,
+    "opened_pull_requests": 1,
+    "merged_pull_requests": 1,
+    "code_change_volume": {
+      "added_lines": 8,
+      "removed_lines": 3,
+      "meaning": "Synthetic fixture only; change volume is not productivity or unique authored code."
+    }
+  },
+  "ai_metadata": {
+    "denominator": 2,
+    "classes": {
+      "A": {"count": 1, "meaning": "explicitly AI-assisted"},
+      "B": {"count": 0, "meaning": "explicitly entirely human declared"},
+      "C": {"count": 1, "meaning": "undetermined"}
+    }
+  },
+  "partial": true,
+  "partial_reasons": [
+    "Synthetic offline fixture; no live GitHub API measurement was made."
+  ],
+  "provenance": [
+    {
+      "url": "https://api.github.com/users/public-profile-fixture",
+      "fixture": true
+    }
+  ]
+}
