@@ -1,6 +1,8 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
-# WeasyPrint's PDF rendering needs these system libraries; see
+# Pinned to bookworm (not just "slim", which now resolves to trixie):
+# WeasyPrint's PDF rendering needs these system libraries, and trixie
+# renamed libgdk-pixbuf2.0-0. See
 # https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#debian-ubuntu
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
