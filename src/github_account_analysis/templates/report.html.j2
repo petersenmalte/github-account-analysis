@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Declared-attribution public GitHub analysis</title>
+  <link rel="stylesheet" href="report.css">
+</head>
+<body>
+  <section class="overview">
+    <h1>Public GitHub analysis</h1>
+    <p class="subtitle">Current data overview — declared-attribution, not proof of origin</p>
+    {% if synthetic %}
+    <p class="notice"><strong>SYNTHETIC DEMONSTRATION.</strong> This output is generated from bundled test data and is not real GitHub activity.</p>
+    {% endif %}
+    <p class="statement">{{ report.reporting_language }}</p>
+    <div class="metric-grid">
+      <div class="metric"><span>Report generated (UTC)</span><strong>{{ report.generated_at_utc }}</strong></div>
+      <div class="metric"><span>Repository-panel coverage</span><strong>{{ report.population.repository_panel.repository_count }}</strong></div>
+      <div class="metric"><span>Observed event sources</span><strong>{{ report.population.observed_event_stream.successful_source_count }}</strong></div>
+    </div>
+    <p><strong>Panel population:</strong> {{ report.population.repository_panel.coverage }}.</p>
+    <p><strong>Panel source data time (UTC):</strong> {{ report.population.repository_panel.source_data_timestamp_utc or "unavailable" }}.</p>
+    <p><strong>Observed event window (UTC):</strong>
+      {% if report.population.observed_event_stream.utc_window.start_utc %}
+      {{ report.population.observed_event_stream.utc_window.start_utc }} through {{ report.population.observed_event_stream.utc_window.end_utc }}
+      {% else %}unavailable — no successful observed-event source{% endif %}.
+    </p>
+    <h2>Declared-attribution summary</h2>
+    <div class="metric-grid">
+      <div class="metric"><span>Explicitly AI-assisted</span><strong>{{ report.attribution.declared_ai_assisted }}</strong></div>
+      <div class="metric"><span>Explicitly human-only</span><strong>{{ report.attribution.declared_human_only }}</strong></div>
+      <div class="metric"><span>Indeterminate</span><strong>{{ report.attribution.indeterminate }}</strong></div>
+      <div class="metric"><span>Bot commit facts (separate)</span><strong>{{ report.attribution.bot_commit_facts }}</strong></div>
+    </div>
+    <p class="muted">Primary denominator: {{ report.attribution.non_bot_primary_denominator }} non-bot unique observed commit facts. Missing declaration is indeterminate, not evidence of human work.</p>
+  </section>
+
+  <section>
+    <h2>Trend from observed event data</h2>
+    <p>Monthly rows cover only observed source windows within the last ten years. Missing months are not zeroes and do not imply missing GitHub activity.</p>
+    <img class="chart" src="trend.svg" alt="Monthly declared-attribution trend chart">
+    {% if report.monthly_trend_last_ten_years %}
+    <table>
+      <thead><tr><th>Month (UTC)</th><th>AI-assisted</th><th>Human-only</th><th>Indeterminate</th><th>Bots</th><th>Non-bot total</th></tr></thead>
+      <tbody>{% for row in report.monthly_trend_last_ten_years %}
+        <tr><td>{{ row.month_utc }}</td><td>{{ row.declared_ai_assisted }}</td><td>{{ row.declared_human_only }}</td><td>{{ row.indeterminate }}</td><td>{{ row.bot_commits }}</td><td>{{ row.non_bot_commit_facts }}</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% else %}<p><strong>No monthly trend is available.</strong> No successful observed-event source has been ingested.</p>{% endif %}
+
+    <h2>Repository-panel language bytes</h2>
+    <p>These are GitHub language <strong>bytes</strong>, not lines of code. Both distributions use the identical measured panel population. {{ report.language_bytes.repositories_without_measured_code }} repository/repositories with no measured code are excluded from both denominators.</p>
+    <table>
+      <thead><tr><th>Language</th><th>Equal-repository share</th><th>Byte-weighted share</th><th>Aggregate language bytes</th></tr></thead>
+      <tbody>{% for row in report.language_bytes.distributions %}
+        <tr><td>{{ row.language }}</td><td>{{ "%.2f"|format(row.equal_repository_share * 100) }}%</td><td>{{ "%.2f"|format(row.byte_weighted_share * 100) }}%</td><td>{{ row.language_bytes }}</td></tr>
+      {% else %}<tr><td colspan="4">No successful panel language data is available.</td></tr>{% endfor %}</tbody>
+    </table>
+    <p class="muted">Measured repositories: {{ report.language_bytes.eligible_repositories }}; total measured language bytes: {{ report.language_bytes.total_measured_language_bytes }}.</p>
+
+    <h2>Methodology and limits</h2>
+    <p>The primary category is <strong>declared-attribution</strong>: an explicit versioned declaration is recognized, but it is never proof that a human or tool originated code. Multiple valid tool labels still count once in the primary AI-assisted category.</p>
+    {% if report.attribution.tool_breakdown_multilabel %}
+    <h3>Secondary multi-label tool breakdown</h3>
+    <ul>{% for tool in report.attribution.tool_breakdown_multilabel %}<li>{{ tool.tool }}: {{ tool.declared_ai_assisted_commit_facts }} explicitly AI-assisted commit fact(s)</li>{% endfor %}</ul>
+    {% endif %}
+    <ul>
+      <li>{{ report.limitations.github_search_api }}</li>
+      <li>{{ report.limitations.gharchive }}</li>
+      <li>{{ report.limitations.historical_data }}</li>
+      {% for bias in report.limitations.biases %}<li>{{ bias | capitalize }}.</li>{% endfor %}
+      {% for gap in report.data_gaps %}<li>Data gap: {{ gap }}</li>{% endfor %}
+    </ul>
+
+    <h2>Sources and coverage</h2>
+    <p>The exact source identifiers, timestamps, UTC windows, status, and source digests are included in <a href="report-manifest.json">the machine-readable report manifest</a>.</p>
+    <table class="source-list">
+      <thead><tr><th>Kind/status</th><th>Source</th><th>Observed (UTC)</th><th>UTC window</th><th>Accepted records</th></tr></thead>
+      <tbody>{% for source in report.sources %}
+        <tr><td>{{ source.kind }} / {{ source.status }}</td><td><a href="{{ source.source_url }}">{{ source.source_url }}</a></td><td>{{ source.observed_at_utc }}</td><td>{{ source.window_start_utc or "N/A" }} — {{ source.window_end_utc or "N/A" }}</td><td>{{ source.accepted_records }}</td></tr>
+      {% else %}<tr><td colspan="5">No sources recorded.</td></tr>{% endfor %}</tbody>
+    </table>
+    <p>Official references: {% for label, url in official_sources %}<a href="{{ url }}">{{ label }}</a>{% if not loop.last %}; {% endif %}{% endfor %}.</p>
+  </section>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "rule_version": "1.0.0",
+  "description": "Explicit declarations only. This rule is evidence of a declaration, not proof of code origin.",
+  "trailers": {
+    "ai_assisted": {
+      "AI-Assisted": [
+        "yes"
+      ],
+      "Declared-Attribution": [
+        "ai-assisted"
+      ]
+    },
+    "human_only": {
+      "Human-Only": [
+        "yes"
+      ],
+      "Declared-Attribution": [
+        "human-only"
+      ]
+    },
+    "tools": {
+      "AI-Tools": [
+        "GitHub Copilot",
+        "Claude",
+        "ChatGPT",
+        "Gemini"
+      ]
+    }
+  },
+  "exact_ai_coauthors": [],
+  "bot_login_suffix": "[bot]",
+  "bot_email_suffix": "[bot]@users.noreply.github.com"
+}

@@ -1,0 +1,14 @@
+{
+  "files": {
+    "SKILL.md": "1c906a4a15fac27ff41777754f78c6041ec4c659e1196a3a292990f170e60f5d",
+    "VERSION": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67",
+    "agents/openai.yaml": "f667865e74deba293061762f58ff674373f8fc0b62e46f9d6e993843bdab11b0",
+    "references/architecture.md": "3b9cfe0e4347559a551a3b2dc79e03d9af9fcb3f45bcc38921a8bf086b1fd7d1",
+    "references/project-setup.md": "b49c200de5bfe9bd629bedc747a853e127a8bb3ac5ab049e7ae101ed2d7d3ee0",
+    "references/review.md": "246bb3a00dd187b8e9cbf3287674187e727a78eaa79f2c156250ee3530bd61ea",
+    "references/testing.md": "395f286260f51e6f916bcb17f87504bcf9cb90e706b118374f5c16533d8038f5",
+    "scripts/install.py": "4e0598dab7561e35890ef887e4aed94b2ee7a8fc1af92d80fd84167d498aae53"
+  },
+  "package": "engineering-agents",
+  "version": "0.1.0"
+}

@@ -1,0 +1,69 @@
+{
+  "generated_at_utc": "2026-09-24T17:07:31Z",
+  "has_recorded_source_failures": false,
+  "latest_panel_source_id": "panel:1871e488d3be19b63606bbec296cd261167747137b31f39010ffa6cd8dfccacb",
+  "schema_version": "current-status/v1",
+  "source_statuses": [
+    {
+      "accepted_records": 3,
+      "content_sha256": "1871e488d3be19b63606bbec296cd261167747137b31f39010ffa6cd8dfccacb",
+      "created_at_utc": "2026-09-24T16:50:49Z",
+      "input_path": null,
+      "kind": "repository-panel",
+      "message": null,
+      "observed_at_utc": "2026-09-24T16:50:47Z",
+      "records_seen": 3,
+      "source_id": "panel:1871e488d3be19b63606bbec296cd261167747137b31f39010ffa6cd8dfccacb",
+      "source_url": "https://api.github.com/",
+      "status": "succeeded",
+      "window_end_utc": null,
+      "window_start_utc": null
+    },
+    {
+      "accepted_records": 2,
+      "content_sha256": "24171acb2a49fb17d33db3dd721d4a957ab39d8830ea33d99234a9c17f95b812",
+      "created_at_utc": "2026-09-24T16:53:39Z",
+      "input_path": "data/inbox/2025-02-01-0.json.gz",
+      "kind": "observed-events",
+      "message": null,
+      "observed_at_utc": "2026-09-24T16:53:35Z",
+      "records_seen": 185480,
+      "source_id": "events:fa4b25a1270d868476de31f90b1ae00a33342fe0907acddeaee767a3eb3942cf",
+      "source_url": "https://data.gharchive.org/2025-02-01-0.json.gz",
+      "status": "succeeded",
+      "window_end_utc": "2025-02-01T01:00:00Z",
+      "window_start_utc": "2025-02-01T00:00:00Z"
+    },
+    {
+      "accepted_records": 2,
+      "content_sha256": "24171acb2a49fb17d33db3dd721d4a957ab39d8830ea33d99234a9c17f95b812",
+      "created_at_utc": "2026-09-24T17:02:30Z",
+      "input_path": "data/inbox/2025-02-01-0.json.gz",
+      "kind": "observed-events",
+      "message": null,
+      "observed_at_utc": "2026-09-24T17:02:27Z",
+      "records_seen": 185480,
+      "source_id": "events:9ec84688372fa3d08c46ad85728d7e5c7abf89cb986716b66a62bdb2f6960216",
+      "source_url": "https://data.gharchive.org/2025-02-01-0.json.gz",
+      "status": "succeeded",
+      "window_end_utc": "2025-02-01T01:00:00Z",
+      "window_start_utc": "2025-02-01T00:00:00Z"
+    },
+    {
+      "accepted_records": 2,
+      "content_sha256": "24171acb2a49fb17d33db3dd721d4a957ab39d8830ea33d99234a9c17f95b812",
+      "created_at_utc": "2026-09-24T17:07:31Z",
+      "input_path": "data/inbox/2025-02-01-0.json.gz",
+      "kind": "observed-events",
+      "message": null,
+      "observed_at_utc": "2026-09-24T17:07:28Z",
+      "records_seen": 185480,
+      "source_id": "events:2613bc7a8b4760069a835481b1d2cc262332e5ba14b630088bbee5c03dc2cf7c",
+      "source_url": "https://data.gharchive.org/2025-02-01-0.json.gz",
+      "status": "succeeded",
+      "window_end_utc": "2025-02-01T01:00:00Z",
+      "window_start_utc": "2025-02-01T00:00:00Z"
+    }
+  ],
+  "staleness_note": "No recorded source failures."
+}

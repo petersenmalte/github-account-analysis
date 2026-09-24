@@ -1,0 +1,4 @@
+interface:
+  display_name: "Engineering Agents"
+  short_description: "Projektsetup, Entwicklung und unabhängiges Review"
+  default_prompt: "Nutze $engineering für dieses Softwareprojekt."

@@ -1,0 +1,43 @@
+{
+  "selection_frame": {
+    "selection_method": "synthetic-fixture",
+    "description": "Synthetic fixture only; not a public GitHub repository panel."
+  },
+  "repositories": [
+    {
+      "repository_key": "synthetic/java-heavy",
+      "repository_id": 101,
+      "full_name": "synthetic/java-heavy",
+      "html_url": "https://example.invalid/synthetic/java-heavy",
+      "is_fork": false,
+      "is_archived": false,
+      "pushed_at_utc": "2025-02-01T00:00:00Z",
+      "languages": {
+        "Java": 90,
+        "Python": 10
+      }
+    },
+    {
+      "repository_key": "synthetic/python-heavy",
+      "repository_id": 102,
+      "full_name": "synthetic/python-heavy",
+      "html_url": "https://example.invalid/synthetic/python-heavy",
+      "is_fork": false,
+      "is_archived": false,
+      "pushed_at_utc": "2025-02-01T00:00:00Z",
+      "languages": {
+        "Python": 90
+      }
+    },
+    {
+      "repository_key": "synthetic/empty",
+      "repository_id": 103,
+      "full_name": "synthetic/empty",
+      "html_url": "https://example.invalid/synthetic/empty",
+      "is_fork": false,
+      "is_archived": false,
+      "pushed_at_utc": "2025-02-01T00:00:00Z",
+      "languages": {}
+    }
+  ]
+}

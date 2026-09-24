@@ -1,0 +1,9 @@
+{
+  "selection_method": "supplied-repository-urls",
+  "description": "A small, deterministic public repository panel. It is not a representative sample or GitHub-wide census.",
+  "repositories": [
+    "https://github.com/github/docs",
+    "https://github.com/psf/requests",
+    "https://github.com/pallets/flask"
+  ]
+}
