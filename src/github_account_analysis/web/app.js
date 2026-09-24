@@ -3,6 +3,10 @@ const result = document.querySelector("#result");
 const template = document.querySelector("#report-template");
 
 function text(element, value) { element.textContent = value; }
+function showError(message) {
+  result.hidden = false;
+  result.replaceChildren(Object.assign(document.createElement("p"), {className: "error", textContent: message}));
+}
 function metricRows(metrics) {
   return [
     ["Attributable commits", metrics.attributable_commits],
@@ -42,6 +46,10 @@ function render(report) {
 }
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (window.location.protocol === "file:") {
+    showError("This page was opened directly from a file. Start the Python server, then open http://127.0.0.1:8000 instead of opening index.html.");
+    return;
+  }
   const button = form.querySelector("button");
   const scope = [...form.querySelectorAll('input[name="scope"]:checked')].map(input => input.value);
   button.disabled = true; text(button, "Analyzing…");
@@ -51,7 +59,7 @@ form.addEventListener("submit", async (event) => {
     if (!response.ok) throw new Error(payload.error || "Analysis failed.");
     render(payload);
   } catch (error) {
-    result.hidden = false; result.replaceChildren(Object.assign(document.createElement("p"), {className: "error", textContent: error.message}));
+    showError(error instanceof Error ? error.message : "The analysis request failed.");
   } finally {
     button.disabled = false; text(button, "Analyze public profile");
   }
