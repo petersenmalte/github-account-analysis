@@ -128,6 +128,8 @@ class GitHubClientTests(unittest.TestCase):
                 return []
             if path == "/repos/alice/project/pulls":
                 return [{"number": 3, "user": {"login": "alice"}, "created_at": "2026-01-03T00:00:00Z", "merged_at": "2026-01-04T00:00:00Z"}]
+            if path == "/repos/alice/project/languages":
+                return {"Python": 1200, "Shell": 300}
             raise AssertionError(f"Unexpected URL {url}")
 
         with tempfile.TemporaryDirectory() as directory:
@@ -136,3 +138,9 @@ class GitHubClientTests(unittest.TestCase):
         self.assertEqual(report["metrics"]["opened_pull_requests"], 1)
         self.assertEqual(report["metrics"]["merged_pull_requests"], 1)
         self.assertEqual(report["artifacts"][0]["ownership"], "owned")
+        self.assertEqual(data["repo_languages"], {"alice/project": {"Python": 1200, "Shell": 300}})
+        distribution = {
+            row["language"]: row["percent"]
+            for row in report["metrics"]["languages_in_owned_repositories"]["byte_weighted_distribution"]
+        }
+        self.assertEqual(distribution, {"Python": 80.0, "Shell": 20.0})

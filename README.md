@@ -69,6 +69,17 @@ PYTHONPATH=src python3 -m github_account_analysis.app
 The report's `config.credentials_used` field always reflects whether a token
 was used for that run.
 
+The report, its selectable-text PDF, and the on-page result each include a
+monthly-activity chart, a byte-weighted programming-language breakdown across
+owned repositories (`metrics.languages_in_owned_repositories.byte_weighted_distribution`,
+GitHub-reported bytes, not lines of code), and a **heuristic AI-tool mentions**
+section (`heuristic_ai_signals`). That last one is a loose, best-effort text
+match for known AI-tool names/footers (e.g. "Claude", "GitHub Copilot", a 🤖
+marker) in commit messages and PR bodies — it is explicitly **not** the
+strict, explicit `AI-Classification` trailer metadata above it, is never
+merged into it, and can both miss real AI use and mis-flag human text that
+happens to name a tool. Treat it as a hint to look closer, not a verdict.
+
 ## Real public-data run
 
 The supplied panel is a small, fixed list of public repositories, not a

@@ -194,6 +194,39 @@ def classify_ai(message: str, pr_body: str = "") -> str:
     return declarations.pop() if len(declarations) == 1 else "C"
 
 
+# Best-effort text matching for known AI-tool names/footers. This is
+# deliberately kept separate from classify_ai's strict trailer-only
+# classification above: a name mention is not verified code origin, can miss
+# real AI use, and can mis-flag human text that happens to name a tool
+# (e.g. "cursor" as a UI element, "Claude" as a person's name). Consumers
+# must present this as a heuristic signal, never as fact.
+HEURISTIC_AI_SIGNALS: Tuple[Tuple[str, re.Pattern[str]], ...] = (
+    ("Claude", re.compile(r"\bclaude\b", re.IGNORECASE)),
+    ("GitHub Copilot", re.compile(r"\bcopilot\b", re.IGNORECASE)),
+    ("ChatGPT/GPT", re.compile(r"\bchatgpt\b|\bgpt-\d", re.IGNORECASE)),
+    ("Codex", re.compile(r"\bcodex\b", re.IGNORECASE)),
+    ("Cursor", re.compile(r"\bcursor(\.so|\.com)?\s*(ai|ide)\b|\bcursor ai\b", re.IGNORECASE)),
+    ("Devin", re.compile(r"\bdevin\b", re.IGNORECASE)),
+    ("Gemini", re.compile(r"\bgemini\b", re.IGNORECASE)),
+    ("Amazon Q", re.compile(r"\bamazon q\b", re.IGNORECASE)),
+    ("Codeium", re.compile(r"\bcodeium\b", re.IGNORECASE)),
+    ("Tabnine", re.compile(r"\btabnine\b", re.IGNORECASE)),
+    ("Sourcegraph Cody", re.compile(r"\bsourcegraph cody\b", re.IGNORECASE)),
+    ("Generic AI-tool footer marker", re.compile(r"🤖")),
+)
+
+
+def heuristic_ai_mentions(message: str, pr_body: str = "") -> List[str]:
+    """Return known AI-tool names/markers found by loose text matching.
+
+    Unlike classify_ai, this has no trailer-syntax requirement and no
+    A/B/C exclusivity rule — it is a lightweight, uncertain signal, not a
+    classification. Order follows HEURISTIC_AI_SIGNALS; duplicates removed.
+    """
+    text = f"{message or ''}\n{pr_body or ''}"
+    return [label for label, pattern in HEURISTIC_AI_SIGNALS if pattern.search(text)]
+
+
 def coauthors(message: str) -> List[Dict[str, str]]:
     """Return declared coauthors without assigning shares or resolving identities."""
     return [
