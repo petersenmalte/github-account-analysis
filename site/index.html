@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Public GitHub analysis</title>
+  <link rel="stylesheet" href="report.css">
+</head>
+<body>
+  <section class="overview">
+    <h1>Public GitHub analysis</h1>
+    <p class="subtitle">Current data overview — declared-attribution, not proof of origin</p>
+    
+    <p class="statement">Declared attribution is evidence of an explicit declaration under the named rule version; it is not proof of code origin.</p>
+    <div class="metric-grid">
+      <div class="metric"><span>Report generated (UTC)</span><strong>2026-09-25T03:30:32Z</strong></div>
+      <div class="metric"><span>Repository-panel coverage</span><strong>3</strong></div>
+      <div class="metric"><span>Observed event sources</span><strong>2</strong></div>
+    </div>
+    <p><strong>Panel population:</strong> configured-panel snapshot.</p>
+    <p><strong>Panel source data time (UTC):</strong> 2026-09-25T03:30:27Z.</p>
+    <p><strong>Observed event window (UTC):</strong>
+      
+      2025-02-01T00:00:00Z through 2026-09-24T01:00:00Z
+      .
+    </p>
+    <h2>Declared-attribution summary</h2>
+    <div class="metric-grid">
+      <div class="metric"><span>Explicitly AI-assisted</span><strong>0</strong></div>
+      <div class="metric"><span>Explicitly human-only</span><strong>0</strong></div>
+      <div class="metric"><span>Indeterminate</span><strong>2</strong></div>
+      <div class="metric"><span>Bot commit facts (separate)</span><strong>0</strong></div>
+    </div>
+    <p class="muted">Primary denominator: 2 non-bot unique observed commit facts. Missing declaration is indeterminate, not evidence of human work.</p>
+  </section>
+
+  <section>
+    <h2>Trend from observed event data</h2>
+    <p>Monthly rows cover only observed source windows within the last ten years. Missing months are not zeroes and do not imply missing GitHub activity.</p>
+    <img class="chart" src="trend.svg" alt="Monthly declared-attribution trend chart">
+    
+    <table>
+      <thead><tr><th>Month (UTC)</th><th>AI-assisted</th><th>Human-only</th><th>Indeterminate</th><th>Bots</th><th>Non-bot total</th></tr></thead>
+      <tbody>
+        <tr><td>2025-02</td><td>0</td><td>0</td><td>2</td><td>0</td><td>2</td></tr>
+      </tbody>
+    </table>
+    
+
+    <h2>Repository-panel language bytes</h2>
+    <p>These are GitHub language <strong>bytes</strong>, not lines of code. Both distributions use the identical measured panel population. 0 repository/repositories with no measured code are excluded from both denominators.</p>
+    <table>
+      <thead><tr><th>Language</th><th>Equal-repository share</th><th>Byte-weighted share</th><th>Aggregate language bytes</th></tr></thead>
+      <tbody>
+        <tr><td>CSS</td><td>0.00%</td><td>0.00%</td><td>18</td></tr>
+      
+        <tr><td>Dockerfile</td><td>0.05%</td><td>0.12%</td><td>7345</td></tr>
+      
+        <tr><td>HTML</td><td>0.05%</td><td>0.08%</td><td>4939</td></tr>
+      
+        <tr><td>JavaScript</td><td>0.06%</td><td>0.14%</td><td>9231</td></tr>
+      
+        <tr><td>Makefile</td><td>0.21%</td><td>0.04%</td><td>2527</td></tr>
+      
+        <tr><td>Python</td><td>66.42%</td><td>15.00%</td><td>955863</td></tr>
+      
+        <tr><td>SCSS</td><td>1.18%</td><td>3.01%</td><td>191956</td></tr>
+      
+        <tr><td>Shell</td><td>0.09%</td><td>0.21%</td><td>13545</td></tr>
+      
+        <tr><td>TypeScript</td><td>31.94%</td><td>81.40%</td><td>5187823</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">Measured repositories: 3; total measured language bytes: 6373247.</p>
+
+    <h2>Methodology and limits</h2>
+    <p>The primary category is <strong>declared-attribution</strong>: an explicit versioned declaration is recognized, but it is never proof that a human or tool originated code. Multiple valid tool labels still count once in the primary AI-assisted category.</p>
+    
+    <ul>
+      <li>GitHub Search API has a 1,000-result cap and rate limits; it cannot establish an authoritative global repository census.</li>
+      <li>GH Archive is an observed public event stream. PushEvent payload commit objects are not a complete commit census and are not equivalent to pushes.</li>
+      <li>Public historical datasets and API metadata are bounded or stale populations, not a complete history.</li>
+      <li>Selection frame bias.</li><li>Source availability and api-rate-limit bias.</li><li>Survivorship bias.</li><li>Time-of-day sampling bias for scheduled event collection.</li><li>Declaration and tool-reporting bias.</li>
+      <li>Data gap: Only successfully ingested event source windows are represented; unobserved hours and months are not zero activity.</li><li>Data gap: PushEvent payload commit objects omit commit history outside the observed public event stream.</li><li>Data gap: Repository language data excludes repositories with empty or unavailable GitHub language measurements from language-share denominators.</li><li>Data gap: No source failure has been recorded in the current state.</li>
+    </ul>
+
+    <h2>Sources and coverage</h2>
+    <p>The exact source identifiers, timestamps, UTC windows, status, and source digests are included in <a href="report-manifest.json">the machine-readable report manifest</a>.</p>
+    <table class="source-list">
+      <thead><tr><th>Kind/status</th><th>Source</th><th>Observed (UTC)</th><th>UTC window</th><th>Accepted records</th></tr></thead>
+      <tbody>
+        <tr><td>repository-panel / succeeded</td><td><a href="https://api.github.com/">https://api.github.com/</a></td><td>2026-09-24T16:50:47Z</td><td>N/A — N/A</td><td>3</td></tr>
+      
+        <tr><td>observed-events / succeeded</td><td><a href="https://data.gharchive.org/2025-02-01-0.json.gz">https://data.gharchive.org/2025-02-01-0.json.gz</a></td><td>2026-09-24T16:53:35Z</td><td>2025-02-01T00:00:00Z — 2025-02-01T01:00:00Z</td><td>2</td></tr>
+      
+        <tr><td>observed-events / succeeded</td><td><a href="https://data.gharchive.org/2025-02-01-0.json.gz">https://data.gharchive.org/2025-02-01-0.json.gz</a></td><td>2026-09-24T17:02:27Z</td><td>2025-02-01T00:00:00Z — 2025-02-01T01:00:00Z</td><td>2</td></tr>
+      
+        <tr><td>observed-events / succeeded</td><td><a href="https://data.gharchive.org/2025-02-01-0.json.gz">https://data.gharchive.org/2025-02-01-0.json.gz</a></td><td>2026-09-24T17:07:28Z</td><td>2025-02-01T00:00:00Z — 2025-02-01T01:00:00Z</td><td>2</td></tr>
+      
+        <tr><td>repository-panel / succeeded</td><td><a href="https://api.github.com/">https://api.github.com/</a></td><td>2026-09-25T03:30:27Z</td><td>N/A — N/A</td><td>3</td></tr>
+      
+        <tr><td>observed-events / succeeded</td><td><a href="https://data.gharchive.org/2026-09-24-0.json.gz">https://data.gharchive.org/2026-09-24-0.json.gz</a></td><td>2026-09-25T03:30:30Z</td><td>2026-09-24T00:00:00Z — 2026-09-24T01:00:00Z</td><td>0</td></tr>
+      </tbody>
+    </table>
+    <p>Official references: <a href="https://docs.github.com/rest">GitHub REST API documentation</a>; <a href="https://docs.github.com/rest/search/search">GitHub Search API limitations</a>; <a href="https://www.gharchive.org/">GH Archive</a>.</p>
+  </section>
+</body>
+</html>
