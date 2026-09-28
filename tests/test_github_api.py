@@ -369,3 +369,60 @@ class CompleteCollectionTests(unittest.TestCase):
         data, report = self._collect(transport, scope=("owned",))
         self.assertEqual(report["metrics"]["attributable_commits"], 2)
         self.assertEqual(data["coverage"]["branches_scanned"], 1)
+
+    def test_owned_repositories_report_every_author_without_crediting_the_account(self):
+        def git_commit(sha, login, name, email):
+            return {
+                "sha": sha,
+                "author": {"login": login, "type": "Bot" if login and login.endswith("[bot]") else "User"} if login else None,
+                "commit": {"message": "change", "author": {"name": name, "email": email, "date": "2026-01-03T00:00:00Z"}},
+            }
+
+        history = [
+            git_commit("1" * 40, "alice", "Alice", "alice@example.test"),
+            git_commit("2" * 40, None, "Claude", "noreply@anthropic.com"),
+            git_commit("3" * 40, "Copilot", "copilot-swe-agent[bot]", "198982749+Copilot@users.noreply.github.com"),
+            git_commit("4" * 40, "github-actions[bot]", "github-actions[bot]", "actions@example.test"),
+            git_commit("5" * 40, None, "Alice Laptop", "alice@laptop.local"),
+            git_commit("6" * 40, "bob", "Bob", "bob@example.test"),
+        ]
+        seen_params = []
+
+        def transport(url):
+            parsed = urlparse(url)
+            path = parsed.path
+            if path == "/users/alice":
+                return {"login": "alice"}
+            if path == "/users/alice/repos":
+                return [{"full_name": "alice/project", "default_branch": "main", "size": 1}]
+            if path.startswith("/search/"):
+                return {"total_count": 0, "items": []}
+            if path == "/repos/alice/project/languages":
+                return {}
+            if path == "/repos/alice/project/branches":
+                return []
+            if path == "/repos/alice/project/commits":
+                seen_params.append(parsed.query)
+                return history
+            if "/commits/" in path:
+                return {**history[0], "files": []}
+            raise AssertionError(url)
+
+        data, report = self._collect(transport, scope=("owned",))
+        self.assertNotIn("author=", seen_params[0])
+        self.assertEqual(report["metrics"]["attributable_commits"], 1)
+        authorship = report["metrics"]["owned_repository_authorship"]
+        self.assertEqual(authorship["total_commits"], 6)
+        counts = {label: row["count"] for label, row in authorship["by_category"].items()}
+        self.assertEqual(
+            counts,
+            {
+                "AI coding agent identity (heuristic)": 2,
+                "this account": 1,
+                "bot": 1,
+                "git identity not linked to a GitHub account": 1,
+                "other GitHub account": 1,
+            },
+        )
+        self.assertEqual(report["metrics"]["per_repository"][0]["all_author_commits"], 6)
+        self.assertEqual(data["coverage"]["commits_with_change_statistics"], 1)

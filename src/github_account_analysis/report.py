@@ -25,6 +25,7 @@ from . import __version__
 from .attribution import (
     classify_ai,
     coauthors,
+    commit_author_category,
     file_kind,
     heuristic_ai_mentions,
     is_bot,
@@ -550,12 +551,73 @@ def _pull_record(item: Mapping[str, Any], login: str) -> Dict[str, Any] | None:
     }
 
 
+_AUTHOR_CATEGORY_LABELS = {
+    "account": "this account",
+    "ai_agent": "AI coding agent identity (heuristic)",
+    "bot": "bot",
+    "other_account": "other GitHub account",
+    "unlinked_identity": "git identity not linked to a GitHub account",
+}
+
+
+def _owned_repository_authorship(commits: Iterable[Mapping[str, Any]], login: str) -> Dict[str, Any]:
+    """Who authored the commits found in the account's owned repositories.
+
+    Only the "account" category is attributed to the analyzed account; the
+    others are shown so the report covers everything the repositories
+    contain, without crediting it to anyone by inference.
+    """
+    owned = [item for item in commits if item.get("ownership") == "owned"]
+    categories: Counter = Counter()
+    authors: Dict[tuple, Dict[str, Any]] = {}
+    per_repository: Counter = Counter()
+    for item in owned:
+        category = commit_author_category(item, login)
+        categories[category] += 1
+        per_repository[str(item.get("repository", ""))] += 1
+        actor = item.get("author") or {}
+        name = ((item.get("commit") or {}).get("author") or {}).get("name")
+        key = (category, str(actor.get("login") or ""), "" if actor.get("login") else str(name or ""))
+        entry = authors.setdefault(
+            key,
+            {
+                "category": category,
+                "category_label": _AUTHOR_CATEGORY_LABELS[category],
+                "login": actor.get("login"),
+                "git_name": name,
+                "commits": 0,
+            },
+        )
+        entry["commits"] += 1
+    total = len(owned)
+    return {
+        "basis": (
+            "Every commit found on the scanned branches of owned non-fork repositories (forks: only the "
+            "account's own commits), grouped by author identity. Only 'this account' is attributed to the "
+            "analyzed account; AI-agent identities are matched by name/email and are a heuristic."
+        ),
+        "total_commits": total,
+        "by_category": {
+            _AUTHOR_CATEGORY_LABELS[key]: {"count": count, "percent": round(count * 100 / total, 1)}
+            for key, count in categories.most_common()
+        },
+        "authors": sorted(authors.values(), key=lambda row: (-row["commits"], str(row["login"] or row["git_name"]))),
+        "_per_repository": dict(per_repository),
+    }
+
+
 def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[str, Any]:
     """Build transparent metrics from only explicitly provided public API evidence."""
     profile = data.get("profile") or {}
     login = str(profile.get("login") or request.get("username") or "")
     commits, deduplicated = unique_commits(data.get("commits") or [])
     commit_records = [record for item in commits if (record := _commit_record(item, login))]
+    scope = set(request.get("scope") or [])
+    if scope and "owned" not in scope:
+        commit_records = [record for record in commit_records if record["ownership"] != "owned"]
+    if scope and "contributed" not in scope:
+        commit_records = [record for record in commit_records if record["ownership"] != "contributed"]
+    authorship = _owned_repository_authorship(commits, login)
     raw_pull_records = [
         record for item in data.get("pulls") or [] if (record := _pull_record(item, login))
     ]
@@ -617,6 +679,7 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
             "primary_language": repo.get("language"),
             "commits": 0,
             "pull_requests": 0,
+            "all_author_commits": 0,
         }
     for item in artifacts:
         name = str(item.get("repository") or "")
@@ -634,6 +697,9 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
             },
         )
         row["commits" if item["type"] == "commit" else "pull_requests"] += 1
+    for name, count in authorship.pop("_per_repository").items():
+        if name in per_repository:
+            per_repository[name]["all_author_commits"] = count
     contributed = {
         str(item.get("repository"))
         for item in artifacts
@@ -687,6 +753,7 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
                 "commits_total": len(commit_records),
                 "measurement_complete": measured_commits == len(commit_records),
             },
+            "owned_repository_authorship": authorship,
             "per_repository": sorted(
                 per_repository.values(),
                 key=lambda row: (-(row["commits"] + row["pull_requests"]), row["repository"].lower()),

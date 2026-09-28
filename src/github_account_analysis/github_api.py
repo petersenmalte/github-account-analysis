@@ -351,6 +351,9 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
        account anywhere on GitHub;
     2. commits that exist only on other branches of owned repositories;
     3. per-commit diff statistics (one request per commit) for change volume.
+
+    In owned non-fork repositories every commit is collected, whoever
+    authored it; attribution to the account happens later in the report.
     """
     login = normalize_login(login_value)
     profile = client.get(f"/users/{login}")
@@ -418,9 +421,12 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
             if repo.get("size") == 0:
                 coverage["empty_repositories"] += 1
             before = len(client.provenance)
-            listed = client.pages(
-                f"/repos/{name}/commits", {"author": login, "since": since_param}, missing_ok=(409,)
-            )
+            # Non-fork repositories: every commit, whoever authored it, so the
+            # report can show what the repository contains (AI agents, bots,
+            # unlinked git identities) without crediting it to the account.
+            # Forks carry upstream history, so only the account's commits.
+            params = {"since": since_param, "author": login if repo.get("fork") else None}
+            listed = client.pages(f"/repos/{name}/commits", params, missing_ok=(409,))
             statuses = [entry.get("status") for entry in client.provenance[before:]]
             if 409 in statuses:
                 coverage["empty_repositories"] += 0 if repo.get("size") == 0 else 1
@@ -520,23 +526,28 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
                     break
                 coverage["branches_scanned"] += 1
                 for summary in client.pages(
-                    f"/repos/{name}/commits", {"sha": branch_name, "author": login, "since": since_param}, missing_ok=(409,)
+                    f"/repos/{name}/commits", {"sha": branch_name, "since": since_param}, missing_ok=(409,)
                 ):
                     add_commit(summary, name, "owned", f"repository commit list (branch {branch_name})")
         if coverage["branch_scan"] != "complete":
             client.partial_reasons.append("non-default branches of owned repositories were only partly scanned (request or time budget)")
 
-    # Phase 3: per-commit diff statistics for change volume (optional detail).
+    # Phase 3: per-commit diff statistics for the account's own commits.
+    def by_account(item: Mapping[str, Any]) -> bool:
+        return str((item.get("author") or {}).get("login", "")).lower() == login.lower()
+
     for index, item in enumerate(commits):
-        if item.get("files") is not None:
+        if item.get("files") is not None or not by_account(item):
             continue
         if client.remaining_requests <= 0 or client.time_left() <= 0:
             break
         detail = client.get(f"/repos/{item['repository']}/commits/{item.get('sha')}")
         if isinstance(detail, Mapping):
             commits[index] = {**item, **{key: value for key, value in detail.items() if key != "repository"}}
-    coverage["commits_found"] = len(commits)
-    coverage["commits_with_change_statistics"] = sum(1 for item in commits if item.get("files") is not None)
+    account_commits = [item for item in commits if by_account(item)]
+    coverage["commits_found"] = len(account_commits)
+    coverage["commits_with_change_statistics"] = sum(1 for item in account_commits if item.get("files") is not None)
+    coverage["owned_repository_commits_all_authors"] = sum(1 for item in commits if item.get("ownership") == "owned")
     if coverage["commits_with_change_statistics"] < coverage["commits_found"]:
         client.partial_reasons.append(
             f"change volume measured for {coverage['commits_with_change_statistics']} of {coverage['commits_found']} commits "

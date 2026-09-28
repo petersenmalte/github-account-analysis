@@ -216,6 +216,36 @@ HEURISTIC_AI_SIGNALS: Tuple[Tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+# Git identities that coding agents commit under. Heuristic, like the
+# mention list above: a matching name proves nothing about who wrote a line.
+AI_AGENT_IDENTITY = re.compile(
+    r"\bclaude\b|anthropic\.com|copilot|\bcodex\b|openai|devin-ai|\bdevin\b|cursor ?agent|cursoragent|"
+    r"google-labs-jules|\bjules\b|gemini|amazon-q|codegen|sweep-ai|aider",
+    re.IGNORECASE,
+)
+
+
+def commit_author_category(item: Mapping[str, Any], login: str) -> str:
+    """Classify who a commit's author is, relative to the analyzed account.
+
+    Categories: "account", "ai_agent", "bot", "other_account", or
+    "unlinked_identity" (git name/email not linked to any GitHub account).
+    """
+    actor = item.get("author") or {}
+    git_author = (item.get("commit") or {}).get("author") or {}
+    actor_login = str(actor.get("login", ""))
+    if actor_login and actor_login.lower() == login.lower():
+        return "account"
+    identity = " ".join(
+        str(value) for value in (actor_login, git_author.get("name"), git_author.get("email")) if value
+    )
+    if AI_AGENT_IDENTITY.search(identity):
+        return "ai_agent"
+    if is_bot(actor) or str(git_author.get("name", "")).lower().endswith("[bot]"):
+        return "bot"
+    return "other_account" if actor_login else "unlinked_identity"
+
+
 def heuristic_ai_mentions(message: str, pr_body: str = "") -> List[str]:
     """Return known AI-tool names/markers found by loose text matching.
 

@@ -38,15 +38,38 @@ function coverageRows(coverage) {
     ["Non-default branches scanned", `${coverage.branches_scanned} (${coverage.branch_scan})`],
     ["Pull-request source", coverage.pull_request_source],
     ["Commits in other repositories", coverage.contributed_commit_source],
-    ["Commits with diff statistics", `${coverage.commits_with_change_statistics} of ${coverage.commits_found}`],
+    ["Account commits with diff statistics", `${coverage.commits_with_change_statistics} of ${coverage.commits_found}`],
+    ["Commits in owned repositories (all authors)", coverage.owned_repository_commits_all_authors ?? "—"],
   ];
+}
+
+function renderAuthorship(container, authorship) {
+  if (!authorship || !authorship.total_commits) { emptyChartNotice(container, "No commits were found in owned repositories."); return; }
+  const basis = Object.assign(document.createElement("p"), {className: "muted", textContent: authorship.basis});
+  const table = document.createElement("table");
+  const head = table.createTHead().insertRow();
+  for (const label of ["Author", "Category", "Commits"]) { const cell = document.createElement("th"); text(cell, label); head.append(cell); }
+  const body = table.createTBody();
+  for (const row of authorship.authors) {
+    const tr = body.insertRow();
+    text(tr.insertCell(), row.login ? `@${row.login}` : (row.git_name || "unknown"));
+    text(tr.insertCell(), row.category_label);
+    text(tr.insertCell(), String(row.commits));
+  }
+  const summary = document.createElement("dl");
+  summary.className = "metrics";
+  for (const [label, row] of Object.entries(authorship.by_category)) {
+    const term = document.createElement("dt"), description = document.createElement("dd");
+    text(term, label); text(description, `${row.count} (${row.percent}%)`); summary.append(term, description);
+  }
+  container.replaceChildren(basis, summary, table);
 }
 
 function renderRepositoryTable(container, rows) {
   if (!rows || !rows.length) { emptyChartNotice(container, "No repositories with attributable activity."); return; }
   const table = document.createElement("table");
   const head = table.createTHead().insertRow();
-  for (const label of ["Repository", "Ownership", "Language", "Commits", "PRs"]) {
+  for (const label of ["Repository", "Ownership", "Language", "Commits by account", "All-author commits", "PRs"]) {
     const cell = document.createElement("th"); text(cell, label); head.append(cell);
   }
   const body = table.createTBody();
@@ -54,7 +77,7 @@ function renderRepositoryTable(container, rows) {
     const tr = body.insertRow();
     const link = Object.assign(document.createElement("a"), {href: `https://github.com/${row.repository}`, textContent: row.repository + (row.fork ? " (fork)" : "")});
     tr.insertCell().append(link);
-    for (const value of [row.ownership, row.primary_language || "—", row.commits, row.pull_requests]) text(tr.insertCell(), String(value));
+    for (const value of [row.ownership, row.primary_language || "—", row.commits, row.all_author_commits ?? "—", row.pull_requests]) text(tr.insertCell(), String(value));
   }
   container.replaceChildren(table);
 }
@@ -187,6 +210,7 @@ function render(report, requestPayload) {
     text(term, label); text(description, value); coverage.append(term, description);
   }
   renderRepositoryTable(fragment.querySelector(".repositories"), report.metrics.per_repository);
+  renderAuthorship(fragment.querySelector(".authorship"), report.metrics.owned_repository_authorship);
   renderMonthlyChart(fragment.querySelector(".chart-monthly"), report.metrics.monthly_activity);
   renderLanguageChart(fragment.querySelector(".chart-languages"), report.metrics.languages_in_owned_repositories.byte_weighted_distribution);
   const ai = report.ai_metadata;

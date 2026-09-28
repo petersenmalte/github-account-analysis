@@ -77,8 +77,31 @@ th { background: #d9e2ec; }
         <tr><th>Non-default branches scanned</th><td>{{ report.coverage.branches_scanned }} ({{ report.coverage.branch_scan }})</td></tr>
         <tr><th>Pull-request source</th><td>{{ report.coverage.pull_request_source }}</td></tr>
         <tr><th>Commits in other repositories</th><td>{{ report.coverage.contributed_commit_source }}</td></tr>
-        <tr><th>Commits with diff statistics</th><td>{{ report.coverage.commits_with_change_statistics }} of {{ report.coverage.commits_found }}</td></tr>
+        <tr><th>Account commits with diff statistics</th><td>{{ report.coverage.commits_with_change_statistics }} of {{ report.coverage.commits_found }}</td></tr>
+        {% if report.coverage.owned_repository_commits_all_authors is defined %}<tr><th>Commits in owned repositories (all authors)</th><td>{{ report.coverage.owned_repository_commits_all_authors }}</td></tr>{% endif %}
       </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% set authorship = report.metrics.owned_repository_authorship %}
+  {% if authorship and authorship.total_commits %}
+  <div class="section">
+    <h2>Who authored the commits in owned repositories</h2>
+    <p class="muted">{{ authorship.basis }}</p>
+    <table>
+      <thead><tr><th>Author category</th><th>Commits</th><th>Share</th></tr></thead>
+      <tbody>{% for label, row in authorship.by_category.items() %}
+        <tr><td>{{ label }}</td><td>{{ row.count }}</td><td>{{ row.percent }}%</td></tr>
+      {% endfor %}
+        <tr><th>Total</th><th>{{ authorship.total_commits }}</th><th>100%</th></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Author</th><th>Category</th><th>Commits</th></tr></thead>
+      <tbody>{% for row in authorship.authors %}
+        <tr><td>{% if row.login %}@{{ row.login }}{% else %}{{ row.git_name or "unknown" }}{% endif %}</td><td>{{ row.category_label }}</td><td>{{ row.commits }}</td></tr>
+      {% endfor %}</tbody>
     </table>
   </div>
   {% endif %}
@@ -86,9 +109,9 @@ th { background: #d9e2ec; }
   {% if report.metrics.per_repository %}
   <h2>Repositories ({{ report.metrics.per_repository|length }})</h2>
   <table class="artifact-table">
-    <thead><tr><th>Repository</th><th>Ownership</th><th>Primary language</th><th>Commits</th><th>Pull requests</th></tr></thead>
+    <thead><tr><th>Repository</th><th>Ownership</th><th>Primary language</th><th>Commits by account</th><th>All-author commits</th><th>Pull requests</th></tr></thead>
     <tbody>{% for row in report.metrics.per_repository %}
-      <tr><td><a href="https://github.com/{{ row.repository }}">{{ row.repository }}</a>{% if row.fork %} (fork){% endif %}</td><td>{{ row.ownership }}</td><td>{{ row.primary_language or "—" }}</td><td>{{ row.commits }}</td><td>{{ row.pull_requests }}</td></tr>
+      <tr><td><a href="https://github.com/{{ row.repository }}">{{ row.repository }}</a>{% if row.fork %} (fork){% endif %}</td><td>{{ row.ownership }}</td><td>{{ row.primary_language or "—" }}</td><td>{{ row.commits }}</td><td>{{ row.all_author_commits if row.all_author_commits is defined else "—" }}</td><td>{{ row.pull_requests }}</td></tr>
     {% endfor %}</tbody>
   </table>
   {% endif %}
