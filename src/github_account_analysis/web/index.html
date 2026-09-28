@@ -33,7 +33,7 @@
           </fieldset>
           <button type="submit">Analyze public profile</button>
         </form>
-        <p class="notice">Only public GitHub data is analyzed; an optional server-side token, when configured, is never displayed. GitHub API limits and public-event history can make results partial; this is shown in the report.</p>
+        <p class="notice">Only public GitHub data is analyzed; an optional server-side token, when configured, is never displayed. Without a server-side token GitHub allows only 60 API requests per hour, which usually leaves the per-commit change volume incomplete; any such gap is listed in the report.</p>
       </section>
       <section id="result" hidden aria-live="polite" role="region" aria-label="Analysis result"></section>
     </main>
@@ -46,6 +46,10 @@
         <p class="partial"></p>
         <h3>Attributable public activity</h3>
         <dl class="metrics"></dl>
+        <h3>Collection coverage</h3>
+        <dl class="coverage metrics"></dl>
+        <h3>Repositories</h3>
+        <div class="repositories"></div>
         <h3>Monthly activity</h3>
         <div class="chart chart-monthly"></div>
         <h3>Languages in owned repositories</h3>

@@ -473,6 +473,9 @@ def _commit_record(item: Mapping[str, Any], login: str) -> Dict[str, Any] | None
     if str(actor.get("login", "")).lower() != login.lower():
         return None
     message = str((item.get("commit") or {}).get("message", ""))
+    # List/search endpoints omit per-file statistics; only a commit-detail
+    # response carries "files". Unmeasured commits are counted, not zeroed.
+    changes_measured = item.get("files") is not None
     files = item.get("files") or []
     source_files, excluded_files = [], []
     additions = deletions = excluded_additions = excluded_deletions = 0
@@ -498,6 +501,8 @@ def _commit_record(item: Mapping[str, Any], login: str) -> Dict[str, Any] | None
         "ai_classification": classify_ai(message),
         "heuristic_ai_mentions": heuristic_ai_mentions(message),
         "coauthors": coauthors(message),
+        "evidence_source": item.get("evidence_source", ""),
+        "changes_measured": changes_measured,
         "changes": {
             "additions": additions,
             "deletions": deletions,
@@ -601,6 +606,34 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
     excluded_additions = sum(item["changes"]["excluded_additions"] for item in commit_records)
     excluded_deletions = sum(item["changes"]["excluded_deletions"] for item in commit_records)
     owned = {str(repo.get("full_name")) for repo in data.get("repos") or [] if repo.get("full_name")}
+    measured_commits = sum(1 for item in commit_records if item.get("changes_measured"))
+    per_repository: Dict[str, Dict[str, Any]] = {}
+    repo_meta = {str(repo.get("full_name")): repo for repo in data.get("repos") or [] if repo.get("full_name")}
+    for name, repo in repo_meta.items():
+        per_repository[name] = {
+            "repository": name,
+            "ownership": "owned",
+            "fork": bool(repo.get("fork")),
+            "primary_language": repo.get("language"),
+            "commits": 0,
+            "pull_requests": 0,
+        }
+    for item in artifacts:
+        name = str(item.get("repository") or "")
+        if not name:
+            continue
+        row = per_repository.setdefault(
+            name,
+            {
+                "repository": name,
+                "ownership": item.get("ownership", "contributed"),
+                "fork": False,
+                "primary_language": None,
+                "commits": 0,
+                "pull_requests": 0,
+            },
+        )
+        row["commits" if item["type"] == "commit" else "pull_requests"] += 1
     contributed = {
         str(item.get("repository"))
         for item in artifacts
@@ -650,7 +683,14 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
                 "excluded_generated_vendor_added_lines": excluded_additions,
                 "excluded_generated_vendor_removed_lines": excluded_deletions,
                 "meaning": "diff line volume, not productivity, effort, or unique authored code",
+                "commits_measured": measured_commits,
+                "commits_total": len(commit_records),
+                "measurement_complete": measured_commits == len(commit_records),
             },
+            "per_repository": sorted(
+                per_repository.values(),
+                key=lambda row: (-(row["commits"] + row["pull_requests"]), row["repository"].lower()),
+            ),
             "languages_in_owned_repositories": {
                 "basis": "owned repositories whose GitHub repository summary reports this primary language",
                 "repository_counts": dict(languages.most_common()),
@@ -702,6 +742,7 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
                 "reason": "Representative historical states require a separately configured, version-pinned static-analysis job; no every-commit scan is implied.",
             },
         },
+        "coverage": dict(data.get("coverage") or {}),
         "artifacts": artifacts,
         "deduplication_exclusions": deduplicated + pull_exclusions,
         "uncertainty": uncertainty,

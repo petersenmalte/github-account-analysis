@@ -15,3 +15,7 @@ button:disabled { opacity: .6; } .notice, .quality { color: #516073; font-size: 
 .heuristic .caveat { background: #fff3d9; border-left: 3px solid #a96700; color: #7d1622; font-size: .85rem; padding: .5rem .75rem; margin: 0 0 .5rem; }
 .heuristic ul { margin: .4rem 0 0; padding-left: 1.2rem; }
 @media (max-width: 600px) { main { padding-top: 2rem; } .report-actions { align-items: flex-start; flex-direction: column; } dl.metrics { grid-template-columns: 1fr; gap: .2rem; } dd { margin-bottom: .6rem; } }
+.repositories { max-height: 24rem; overflow: auto; }
+.repositories table { border-collapse: collapse; font-size: .88rem; width: 100%; }
+.repositories th, .repositories td { border-bottom: 1px solid #dbe3f0; padding: .35rem .5rem; text-align: left; }
+.repositories th { background: #f0f4f8; position: sticky; top: 0; }

@@ -24,8 +24,39 @@ function metricRows(metrics) {
     ["Merged pull requests", metrics.merged_pull_requests],
     ["Owned repositories", metrics.owned_repositories],
     ["Contributed repositories", metrics.contributed_repositories],
-    ["Source change volume", `+${metrics.code_change_volume.added_lines} / -${metrics.code_change_volume.removed_lines} lines`],
+    ["Source change volume", `+${metrics.code_change_volume.added_lines} / -${metrics.code_change_volume.removed_lines} lines` +
+      (metrics.code_change_volume.commits_total !== undefined && !metrics.code_change_volume.measurement_complete
+        ? ` (measured for ${metrics.code_change_volume.commits_measured} of ${metrics.code_change_volume.commits_total} commits)` : "")],
   ];
+}
+
+function coverageRows(coverage) {
+  if (!coverage || !Object.keys(coverage).length) return [];
+  return [
+    ["Owned repositories listed", coverage.owned_repositories_listed],
+    ["Default-branch histories listed", `${coverage.owned_repositories_commit_history_listed} (empty: ${coverage.empty_repositories})`],
+    ["Non-default branches scanned", `${coverage.branches_scanned} (${coverage.branch_scan})`],
+    ["Pull-request source", coverage.pull_request_source],
+    ["Commits in other repositories", coverage.contributed_commit_source],
+    ["Commits with diff statistics", `${coverage.commits_with_change_statistics} of ${coverage.commits_found}`],
+  ];
+}
+
+function renderRepositoryTable(container, rows) {
+  if (!rows || !rows.length) { emptyChartNotice(container, "No repositories with attributable activity."); return; }
+  const table = document.createElement("table");
+  const head = table.createTHead().insertRow();
+  for (const label of ["Repository", "Ownership", "Language", "Commits", "PRs"]) {
+    const cell = document.createElement("th"); text(cell, label); head.append(cell);
+  }
+  const body = table.createTBody();
+  for (const row of rows) {
+    const tr = body.insertRow();
+    const link = Object.assign(document.createElement("a"), {href: `https://github.com/${row.repository}`, textContent: row.repository + (row.fork ? " (fork)" : "")});
+    tr.insertCell().append(link);
+    for (const value of [row.ownership, row.primary_language || "—", row.commits, row.pull_requests]) text(tr.insertCell(), String(value));
+  }
+  container.replaceChildren(table);
 }
 
 function svgEl(tag, attrs) {
@@ -150,6 +181,12 @@ function render(report, requestPayload) {
     const term = document.createElement("dt"), description = document.createElement("dd");
     text(term, label); text(description, value); metrics.append(term, description);
   }
+  const coverage = fragment.querySelector(".coverage");
+  for (const [label, value] of coverageRows(report.coverage)) {
+    const term = document.createElement("dt"), description = document.createElement("dd");
+    text(term, label); text(description, value); coverage.append(term, description);
+  }
+  renderRepositoryTable(fragment.querySelector(".repositories"), report.metrics.per_repository);
   renderMonthlyChart(fragment.querySelector(".chart-monthly"), report.metrics.monthly_activity);
   renderLanguageChart(fragment.querySelector(".chart-languages"), report.metrics.languages_in_owned_repositories.byte_weighted_distribution);
   const ai = report.ai_metadata;
