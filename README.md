@@ -52,11 +52,42 @@ PYTHONPATH=src python3 -m github_account_analysis.app
 ```
 
 Enter a GitHub username or profile URL, choose a timeframe and scope, and
-click **Analyze public profile**. By default this only makes anonymous
-GitHub REST API requests, which GitHub caps at 60 requests/hour/IP; an
-account with several owned repositories can exhaust that within one run and
-the report comes back `"partial": true` with `"... request skipped"` reasons
-listed under `partial_reasons`. Set `GITHUB_TOKEN` to a
+click **Analyze public profile**.
+
+### What is collected
+
+Collection runs in phases so that a limited request budget cuts optional
+detail, never coverage:
+
+1. **Complete lists** — the profile, every owned repository (all pages,
+   forks flagged), each repository's languages, every commit on each owned
+   repository's default branch (all authors for non-forks; only the
+   account's own commits for forks), every pull request the account opened
+   anywhere on GitHub (search API), and the account's default-branch
+   commits in repositories it does not own (commit search). Search queries
+   are split by date automatically when they would exceed GitHub's
+   1000-result cap.
+2. **Other branches** of owned non-fork repositories.
+3. **Per-commit diff statistics** for the account's commits (one request
+   per commit) — the only phase that is routinely incomplete without a
+   token; the report states for how many commits change volume was measured.
+
+The report contains a `coverage` block and a per-repository table, and
+`metrics.owned_repository_authorship` lists who authored the commits in
+owned repositories (this account, AI-agent identities such as Claude or the
+Copilot agent, bots, other accounts, and git identities not linked to any
+GitHub account). Only the account's own commits are attributed to it.
+
+Known limits of the public API: GitHub search indexes only default branches
+of public repositories; private contributions are never visible; commits
+whose git e-mail is not linked to the account cannot be attributed to it
+(they are listed as unlinked identities instead).
+
+### Rate limits
+
+Anonymous GitHub REST requests are capped at 60/hour/IP, which covers the
+lists of a typical small account but rarely the per-commit statistics. Set
+`GITHUB_TOKEN` to a
 [personal access token](https://docs.github.com/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 (no scopes needed for public data) before starting the server to raise the
 limit to 5000 requests/hour:
@@ -64,6 +95,17 @@ limit to 5000 requests/hour:
 ```bash
 export GITHUB_TOKEN=github_pat_...  # never printed or included in the report
 PYTHONPATH=src python3 -m github_account_analysis.app
+```
+
+Budget knobs (environment variables): `GAA_MAX_REQUESTS` (default 60
+anonymous / 4000 with a token), `GAA_MAX_SECONDS` (wall-clock limit per
+analysis, default 900), `GAA_MAX_PAGES` (per list, default 100),
+`GAA_CACHE_TTL_SECONDS` (default 3600; single commits are cached forever).
+
+For large accounts, the CLI avoids browser/proxy timeouts:
+
+```bash
+github-account-analysis analyze-profile petersenmalte --json report.json --pdf report.pdf
 ```
 
 The report's `config.credentials_used` field always reflects whether a token
