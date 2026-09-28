@@ -60,6 +60,49 @@ def _sample(store: AnalyticsStore, arguments: argparse.Namespace) -> Dict[str, A
     }
 
 
+def _analyze_profile(arguments: argparse.Namespace) -> int:
+    from .app import analyze
+    from .github_api import GitHubAPIError, GitHubClient
+    from .report import render_pdf
+
+    try:
+        report = analyze(
+            {
+                "username": arguments.username,
+                "timeframe": arguments.timeframe,
+                "scope": arguments.scope or ["owned", "contributed"],
+            },
+            client=GitHubClient(max_requests=arguments.max_requests),
+        )
+        if arguments.json:
+            arguments.json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        if arguments.pdf:
+            arguments.pdf.write_bytes(render_pdf(report))
+    except (GitHubAPIError, ReportError, ValueError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+    _print(
+        {
+            "subject": report["subject"]["login"],
+            "metrics": {
+                key: report["metrics"][key]
+                for key in (
+                    "attributable_commits",
+                    "opened_pull_requests",
+                    "merged_pull_requests",
+                    "owned_repositories",
+                    "contributed_repositories",
+                )
+            },
+            "coverage": report.get("coverage", {}),
+            "partial_reasons": report["partial_reasons"],
+            "json": str(arguments.json) if arguments.json else None,
+            "pdf": str(arguments.pdf) if arguments.pdf else None,
+        }
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="github-account-analysis",
@@ -112,6 +155,21 @@ def build_parser() -> argparse.ArgumentParser:
     sample.add_argument("--reports-dir", type=Path, required=True)
     sample.add_argument("--site-dir", type=Path, required=True)
 
+    profile = subparsers.add_parser(
+        "analyze-profile",
+        help="Analyze one public GitHub account (same report as the web UI) without an HTTP timeout.",
+    )
+    profile.add_argument("username", help="GitHub username or https://github.com/<username> URL")
+    profile.add_argument(
+        "--timeframe", default="all_available", choices=["30_days", "90_days", "1_year", "all_available"]
+    )
+    profile.add_argument(
+        "--scope", action="append", choices=["owned", "contributed"], help="Repeat for both (default: both)."
+    )
+    profile.add_argument("--json", type=Path, default=None, help="Write the machine-readable report here.")
+    profile.add_argument("--pdf", type=Path, default=None, help="Also render the PDF report here.")
+    profile.add_argument("--max-requests", type=int, default=None, help="Override the API request budget.")
+
     loc = subparsers.add_parser("loc", help="Optionally measure local checkout LOC with cloc.")
     loc.add_argument("--repository-dir", type=Path, required=True)
     loc.add_argument("--maximum-files", type=int, default=20_000)
@@ -130,6 +188,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             arguments.reports_dir = Path("reports")
         if arguments.site_dir is None:
             arguments.site_dir = Path("site")
+    if arguments.command == "analyze-profile":
+        return _analyze_profile(arguments)
     store = AnalyticsStore(arguments.data_dir)
     try:
         if arguments.command == "collect-panel":
