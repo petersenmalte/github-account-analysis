@@ -100,7 +100,7 @@ th { background: #d9e2ec; }
     <table>
       <thead><tr><th>Author</th><th>Category</th><th>Commits</th></tr></thead>
       <tbody>{% for row in authorship.authors %}
-        <tr><td>{% if row.login %}@{{ row.login }}{% else %}{{ row.git_name or "unknown" }}{% endif %}</td><td>{{ row.category_label }}</td><td>{{ row.commits }}</td></tr>
+        <tr><td>{% if row.login %}@{{ row.login }}{% else %}{{ row.git_name or "unknown" }}{% endif %}{% if row.name_matches_profile %} — name matches profile, e-mail not linked{% endif %}</td><td>{{ row.category_label }}</td><td>{{ row.commits }}</td></tr>
       {% endfor %}</tbody>
     </table>
   </div>

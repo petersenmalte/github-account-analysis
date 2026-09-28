@@ -52,7 +52,7 @@ function renderAuthorship(container, authorship) {
   const body = table.createTBody();
   for (const row of authorship.authors) {
     const tr = body.insertRow();
-    text(tr.insertCell(), row.login ? `@${row.login}` : (row.git_name || "unknown"));
+    text(tr.insertCell(), (row.login ? `@${row.login}` : (row.git_name || "unknown")) + (row.name_matches_profile ? " — name matches profile, e-mail not linked" : ""));
     text(tr.insertCell(), row.category_label);
     text(tr.insertCell(), String(row.commits));
   }

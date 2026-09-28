@@ -560,7 +560,9 @@ _AUTHOR_CATEGORY_LABELS = {
 }
 
 
-def _owned_repository_authorship(commits: Iterable[Mapping[str, Any]], login: str) -> Dict[str, Any]:
+def _owned_repository_authorship(
+    commits: Iterable[Mapping[str, Any]], login: str, profile_name: Optional[str] = None
+) -> Dict[str, Any]:
     """Who authored the commits found in the account's owned repositories.
 
     Only the "account" category is attributed to the analyzed account; the
@@ -586,10 +588,17 @@ def _owned_repository_authorship(commits: Iterable[Mapping[str, Any]], login: st
                 "login": actor.get("login"),
                 "git_name": name,
                 "commits": 0,
+                # A hint for the account owner, never used for attribution:
+                # the git name equals the profile name or login, but the
+                # commit e-mail is not linked to this (or any) account.
+                "name_matches_profile": category == "unlinked_identity"
+                and bool(name)
+                and str(name).casefold() in {str(profile_name or "").casefold(), login.casefold()},
             },
         )
         entry["commits"] += 1
     total = len(owned)
+    name_matches = sum(row["commits"] for row in authors.values() if row["name_matches_profile"])
     return {
         "basis": (
             "Every commit found on the scanned branches of owned non-fork repositories (forks: only the "
@@ -601,6 +610,7 @@ def _owned_repository_authorship(commits: Iterable[Mapping[str, Any]], login: st
             _AUTHOR_CATEGORY_LABELS[key]: {"count": count, "percent": round(count * 100 / total, 1)}
             for key, count in categories.most_common()
         },
+        "unlinked_commits_matching_profile_name": name_matches,
         "authors": sorted(authors.values(), key=lambda row: (-row["commits"], str(row["login"] or row["git_name"]))),
         "_per_repository": dict(per_repository),
     }
@@ -617,7 +627,7 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
         commit_records = [record for record in commit_records if record["ownership"] != "owned"]
     if scope and "contributed" not in scope:
         commit_records = [record for record in commit_records if record["ownership"] != "contributed"]
-    authorship = _owned_repository_authorship(commits, login)
+    authorship = _owned_repository_authorship(commits, login, profile.get("name"))
     raw_pull_records = [
         record for item in data.get("pulls") or [] if (record := _pull_record(item, login))
     ]
@@ -705,7 +715,17 @@ def build_report(request: Mapping[str, Any], data: Mapping[str, Any]) -> Dict[st
         for item in artifacts
         if item.get("ownership") == "contributed" and item.get("repository")
     }
+    unlinked_matches = authorship["unlinked_commits_matching_profile_name"]
     uncertainty = [
+        *(
+            [
+                f"{unlinked_matches} commit(s) in owned repositories carry a git author name equal to this profile's "
+                "name or login, but an e-mail address that is not linked to the account, so they are not attributed "
+                "to it. Adding that address to the GitHub account (Settings > Emails) would let GitHub link them."
+            ]
+            if unlinked_matches
+            else []
+        ),
         "Attribution is account-first: commits without this GitHub author account are excluded, even if an email/name looks similar.",
         "Co-authored-by trailers establish shared coauthorship only; no individual change shares are inferred.",
         "Transferred repositories, rewritten history, unavailable API pages, squash merges, and private or missing activity can make this incomplete.",

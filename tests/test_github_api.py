@@ -392,7 +392,7 @@ class CompleteCollectionTests(unittest.TestCase):
             parsed = urlparse(url)
             path = parsed.path
             if path == "/users/alice":
-                return {"login": "alice"}
+                return {"login": "alice", "name": "Alice Laptop"}
             if path == "/users/alice/repos":
                 return [{"full_name": "alice/project", "default_branch": "main", "size": 1}]
             if path.startswith("/search/"):
@@ -425,4 +425,6 @@ class CompleteCollectionTests(unittest.TestCase):
             },
         )
         self.assertEqual(report["metrics"]["per_repository"][0]["all_author_commits"], 6)
+        self.assertEqual(authorship["unlinked_commits_matching_profile_name"], 1)
+        self.assertTrue(any("not linked to the account" in statement for statement in report["uncertainty"]))
         self.assertEqual(data["coverage"]["commits_with_change_statistics"], 1)
