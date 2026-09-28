@@ -39,33 +39,72 @@ class GitHubClient:
 
     _limiter_lock = threading.Lock()
     _next_request_at = 0.0
-    request_interval_seconds = 0.25
+    request_interval_seconds = float(os.environ.get("GAA_REQUEST_INTERVAL_SECONDS", "0.1"))
     max_rate_limit_wait_seconds = 5.0
+
+    # Defaults sized to what GitHub actually allows per hour, so a normal
+    # account is analyzed completely instead of being cut off by an
+    # arbitrary local cap: 60 requests/hour anonymously, 5000 with a token.
+    # GAA_MAX_REQUESTS overrides both for a shared deployment.
+    anonymous_request_budget = 60
+    token_request_budget = 4000
+    # Mutable API responses (lists, profiles, search) are re-fetched after
+    # this many seconds; responses addressed by an immutable commit SHA are
+    # cached indefinitely.
+    default_cache_ttl_seconds = 3600
 
     def __init__(
         self,
         cache_dir: Path | None = None,
         transport: Callable[[str], Mapping[str, Any] | List[Any]] | None = None,
-        # 40 was sized for anonymous use (60 req/hour); it left even a
-        # modest owned-repository count partial before a per-repo language
-        # fetch was added. With a GITHUB_TOKEN (5000 req/hour) and the
-        # per-client cooldown in app.py, 120 is still bounded but covers a
-        # realistic profile end to end.
-        max_requests: int = 120,
+        max_requests: Optional[int] = None,
         timeout_seconds: int = 12,
         token: Optional[str] = None,
+        cache_ttl_seconds: Optional[float] = None,
+        max_seconds: Optional[float] = None,
     ) -> None:
         self.cache_dir = cache_dir or Path(os.environ.get("GAA_CACHE_DIR", ".cache/github-account-analysis"))
         self.transport = transport
-        self.max_requests = max_requests
         self.timeout_seconds = timeout_seconds
         # Optional: raises the GitHub REST rate limit from 60/hour (anonymous) to
         # 5000/hour. Never logged; only whether one was used is reported (see
         # report.py's config.credentials_used).
         self.token = token if token is not None else os.environ.get("GITHUB_TOKEN")
+        if max_requests is None:
+            configured = os.environ.get("GAA_MAX_REQUESTS")
+            max_requests = int(configured) if configured else (
+                self.token_request_budget if self.token else self.anonymous_request_budget
+            )
+        self.max_requests = max_requests
+        self.cache_ttl_seconds = (
+            cache_ttl_seconds
+            if cache_ttl_seconds is not None
+            else float(os.environ.get("GAA_CACHE_TTL_SECONDS", self.default_cache_ttl_seconds))
+        )
+        # Wall-clock budget for one collection, so a browser request cannot
+        # hang indefinitely on a very large account; optional enrichment
+        # phases stop first and are reported as partial.
+        self.max_seconds = (
+            max_seconds if max_seconds is not None else float(os.environ.get("GAA_MAX_SECONDS", "900"))
+        )
+        self.started_at = time.monotonic()
         self.requests = 0
         self.provenance: List[Dict[str, Any]] = []
         self.partial_reasons: List[str] = []
+        # Last X-RateLimit-Remaining seen per GitHub rate-limit resource
+        # ("core", "search", ...); None until a response reports it.
+        self.rate_remaining: Dict[str, int] = {}
+        self.rate_reset_at: Dict[str, float] = {}
+
+    @property
+    def remaining_requests(self) -> int:
+        """Requests this collection may still make before a limit is reached."""
+        local = self.max_requests - self.requests
+        core = self.rate_remaining.get("core")
+        return max(0, min(local, core) if core is not None else local)
+
+    def time_left(self) -> float:
+        return self.max_seconds - (time.monotonic() - self.started_at)
 
     @classmethod
     def _acquire_request_slot(cls) -> bool:
@@ -109,19 +148,66 @@ class GitHubClient:
     def _cached_path(self, url: str) -> Path:
         return self.cache_dir / f"{hashlib.sha256(url.encode()).hexdigest()}.json"
 
-    def get(self, endpoint: str, params: Mapping[str, Any] | None = None) -> Mapping[str, Any] | List[Any] | None:
+    @staticmethod
+    def _is_immutable(endpoint: str) -> bool:
+        """A single commit addressed by its full SHA never changes."""
+        parts = endpoint.strip("/").split("/")
+        return len(parts) == 5 and parts[0] == "repos" and parts[3] == "commits" and len(parts[4]) == 40
+
+    @staticmethod
+    def _resource(endpoint: str) -> str:
+        if endpoint.startswith("/search/"):
+            return "search"
+        return "core"
+
+    def _record_rate_headers(self, headers: Any) -> None:
+        if not headers:
+            return
+        resource = headers.get("X-RateLimit-Resource") or "core"
+        remaining = headers.get("X-RateLimit-Remaining")
+        reset_at = headers.get("X-RateLimit-Reset")
+        try:
+            if remaining is not None:
+                self.rate_remaining[str(resource)] = int(remaining)
+            if reset_at is not None:
+                self.rate_reset_at[str(resource)] = float(reset_at)
+        except ValueError:
+            pass
+
+    def get(
+        self,
+        endpoint: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        missing_ok: Iterable[int] = (),
+    ) -> Mapping[str, Any] | List[Any] | None:
+        """GET one API resource.
+
+        HTTP statuses in missing_ok (e.g. 409 for an empty repository's
+        commit list) are expected, recorded in provenance, and do not make
+        the analysis partial.
+        """
         query = urlencode({key: value for key, value in (params or {}).items() if value is not None})
         url = f"{API_BASE}{endpoint}" + (f"?{query}" if query else "")
         cache_path = self._cached_path(url)
         if self.transport is None and cache_path.exists():
             try:
-                payload = json.loads(cache_path.read_text(encoding="utf-8"))
-                self.provenance.append({"url": url, "cached": True, "status": 200})
-                return payload
+                fresh = self._is_immutable(endpoint) or (
+                    time.time() - cache_path.stat().st_mtime < self.cache_ttl_seconds
+                )
+                if fresh:
+                    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                    self.provenance.append({"url": url, "cached": True, "status": 200})
+                    return payload
             except (OSError, json.JSONDecodeError):
                 cache_path.unlink(missing_ok=True)
         if self.requests >= self.max_requests:
             self.partial_reasons.append(f"request budget of {self.max_requests} public API calls reached")
+            return None
+        resource = self._resource(endpoint)
+        if self.rate_remaining.get(resource) == 0 and self.rate_reset_at.get(resource, 0) > time.time():
+            self.partial_reasons.append(f"GitHub {resource} rate limit exhausted; remaining requests skipped")
+            self.provenance.append({"url": url, "cached": False, "status": "rate_limited_skipped"})
             return None
         self.requests += 1
         if not self._acquire_request_slot():
@@ -137,6 +223,7 @@ class GitHubClient:
                     headers["Authorization"] = f"Bearer {self.token}"
                 request = Request(url, headers=headers)
                 with urlopen(request, timeout=self.timeout_seconds) as response:  # nosec B310: API_BASE is constant
+                    self._record_rate_headers(response.headers)
                     payload = json.loads(response.read().decode("utf-8"))
             if self.transport is None:
                 self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -144,6 +231,10 @@ class GitHubClient:
             self.provenance.append({"url": url, "cached": False, "status": 200})
             return payload
         except HTTPError as error:
+            self._record_rate_headers(error.headers)
+            if error.code in set(missing_ok):
+                self.provenance.append({"url": url, "cached": False, "status": error.code})
+                return None
             rate_limited = error.code == 429 or (
                 error.code == 403 and error.headers.get("X-RateLimit-Remaining") == "0"
             )

@@ -85,9 +85,57 @@ class GitHubClientTests(unittest.TestCase):
                     self.assertIsNone(client.get("/users/alice/repos"))
                     elapsed = time.monotonic() - start
             self.assertLess(elapsed, 1.0, "a hit rate-limit reset an hour out must not block the request thread")
-            self.assertTrue(any("backoff exceeded" in reason for reason in client.partial_reasons))
+            self.assertTrue(
+                any("backoff exceeded" in reason or "rate limit exhausted" in reason for reason in client.partial_reasons)
+            )
         finally:
             GitHubClient._next_request_at = original_next_request_at
+
+    def test_default_budget_follows_githubs_hourly_limit(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("GAA_MAX_REQUESTS", None)
+            self.assertEqual(GitHubClient(cache_dir=Path(directory), token="").max_requests, 60)
+            self.assertGreaterEqual(GitHubClient(cache_dir=Path(directory), token="ghp_example").max_requests, 1000)
+
+    def test_expected_missing_status_is_not_partial(self):
+        def empty_repository(request, timeout=None):
+            raise HTTPError(request.full_url, 409, "Git Repository is empty.", {}, None)
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = GitHubClient(cache_dir=Path(directory), token="")
+            with patch("github_account_analysis.github_api.urlopen", empty_repository):
+                self.assertIsNone(client.get("/repos/alice/empty/commits", missing_ok=(409,)))
+        self.assertEqual(client.partial_reasons, [])
+        self.assertEqual(client.provenance[0]["status"], 409)
+
+    def test_mutable_cache_entries_expire_but_commit_details_do_not(self):
+        calls = []
+
+        def fetch(request, timeout=None):
+            calls.append(request.full_url)
+
+            class Response:
+                headers = {}
+
+                def read(self):
+                    return b"{}"
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return False
+
+            return Response()
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = GitHubClient(cache_dir=Path(directory), token="", cache_ttl_seconds=0)
+            with patch("github_account_analysis.github_api.urlopen", fetch):
+                client.get("/users/alice/repos")
+                client.get("/users/alice/repos")
+                client.get(f"/repos/alice/p/commits/{'a' * 40}")
+                client.get(f"/repos/alice/p/commits/{'a' * 40}")
+        self.assertEqual(len(calls), 3)
 
     def test_injected_transport_never_reads_or_writes_default_cache(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {"GAA_CACHE_DIR": directory}):

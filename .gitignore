@@ -10,3 +10,4 @@ data/state/temporary/
 reports/.staging-*/
 reports/.previous-*/
 site/.staging-*/
+.cache/
