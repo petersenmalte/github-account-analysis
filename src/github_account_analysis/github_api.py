@@ -387,6 +387,14 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
     commits: List[Dict[str, Any]] = []
     seen_shas: set = set()
     pulls: List[Dict[str, Any]] = []
+    seen_pulls: set = set()
+
+    def add_pull(item: Mapping[str, Any], repository: str, ownership: str) -> None:
+        key = (repository.lower(), item.get("number"))
+        if key in seen_pulls:
+            return
+        seen_pulls.add(key)
+        pulls.append({**item, "repository": repository, "ownership": ownership})
     repo_languages: Dict[str, Dict[str, int]] = {}
 
     def add_commit(item: Mapping[str, Any], repository: str, ownership: str, source: str) -> None:
@@ -431,7 +439,7 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
             if not in_scope(ownership) or not _in_timeframe(str(item.get("created_at", "")), since):
                 continue
             merged_at = (item.get("pull_request") or {}).get("merged_at")
-            pulls.append({**item, "merged_at": merged_at, "repository": repository, "ownership": ownership})
+            add_pull({**item, "merged_at": merged_at}, repository, ownership)
     elif "owned" in scope_set:
         coverage["pull_request_source"] = "per-repository pull lists (search API unavailable; other repositories not covered)"
         for repo in repos:
@@ -441,7 +449,7 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
                     str((pull.get("user") or {}).get("login", "")).lower() == login.lower()
                     and _in_timeframe(str(pull.get("created_at", "")), since)
                 ):
-                    pulls.append({**pull, "repository": name, "ownership": "owned"})
+                    add_pull(pull, name, "owned")
 
     # Phase 1d: default-branch commits in repositories the account does not own.
     if "contributed" in scope_set:
@@ -485,7 +493,7 @@ def collect_public_data(login_value: str, since: datetime | None, scope: Iterabl
             base_owner = str((((pull.get("base") or {}).get("repo") or {}).get("owner") or {}).get("login", ""))
             pr_ownership = "owned" if ownership == "owned" or base_owner.lower() == login.lower() else "contributed"
             if in_scope(pr_ownership):
-                pulls.append({**pull, "repository": repository, "ownership": pr_ownership})
+                add_pull(pull, repository, pr_ownership)
     if "contributed" in scope_set:
         client.partial_reasons.append(
             "GitHub search only indexes default branches of public repositories; contributions on other branches of repositories the account does not own, or to private repositories, are not visible"
