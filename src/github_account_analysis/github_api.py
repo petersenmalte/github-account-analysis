@@ -7,7 +7,7 @@ import json
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 from urllib.error import HTTPError, URLError
@@ -210,7 +210,8 @@ class GitHubClient:
             self.provenance.append({"url": url, "cached": False, "status": "rate_limited_skipped"})
             return None
         self.requests += 1
-        if not self._acquire_request_slot():
+        # Only real network calls are paced; an injected (offline) transport is not.
+        if self.transport is None and not self._acquire_request_slot():
             self.partial_reasons.append(f"{endpoint}: GitHub rate limit backoff exceeded {self.max_rate_limit_wait_seconds:.0f}s; request skipped")
             self.provenance.append({"url": url, "cached": False, "status": "rate_limited_skipped"})
             return None
@@ -248,10 +249,20 @@ class GitHubClient:
             self.provenance.append({"url": url, "cached": False, "status": "failed"})
         return None
 
-    def pages(self, endpoint: str, params: Mapping[str, Any] | None = None, limit: int = 3) -> List[Mapping[str, Any]]:
+    def pages(
+        self,
+        endpoint: str,
+        params: Mapping[str, Any] | None = None,
+        limit: Optional[int] = None,
+        *,
+        missing_ok: Iterable[int] = (),
+    ) -> List[Mapping[str, Any]]:
+        """Follow list pagination until the last page (or a stated cap)."""
+        if limit is None:
+            limit = int(os.environ.get("GAA_MAX_PAGES", "100"))
         records: List[Mapping[str, Any]] = []
         for page in range(1, limit + 1):
-            payload = self.get(endpoint, {**(params or {}), "per_page": 100, "page": page})
+            payload = self.get(endpoint, {**(params or {}), "per_page": 100, "page": page}, missing_ok=missing_ok)
             if not isinstance(payload, list):
                 break
             records.extend(item for item in payload if isinstance(item, Mapping))
@@ -260,6 +271,57 @@ class GitHubClient:
         else:
             self.partial_reasons.append(f"{endpoint}: pagination capped at {limit} pages")
         return records
+
+
+SEARCH_RESULT_CAP = 1000  # GitHub search never returns more than 1000 results per query
+
+
+def _search_window(
+    client: GitHubClient, kind: str, qualifiers: str, date_field: str, start: date, end: date
+) -> Optional[List[Mapping[str, Any]]]:
+    """Return every search hit in [start, end], splitting the date range while
+    a single query would exceed GitHub's 1000-result cap. None means the
+    search API could not be used at all."""
+    query = f"{qualifiers} {date_field}:{start.isoformat()}..{end.isoformat()}"
+    endpoint = f"/search/{kind}"
+    first = client.get(endpoint, {"q": query, "per_page": 100, "page": 1})
+    if not isinstance(first, Mapping):
+        return None
+    total = int(first.get("total_count") or 0)
+    if total > SEARCH_RESULT_CAP and start < end:
+        middle = start + (end - start) / 2
+        left = _search_window(client, kind, qualifiers, date_field, start, middle)
+        right = _search_window(client, kind, qualifiers, date_field, middle + timedelta(days=1), end)
+        if left is None and right is None:
+            return None
+        return (left or []) + (right or [])
+    if total > SEARCH_RESULT_CAP:
+        client.partial_reasons.append(
+            f"{endpoint}: more than {SEARCH_RESULT_CAP} results on {start.isoformat()}; only the first {SEARCH_RESULT_CAP} are available"
+        )
+    if first.get("incomplete_results"):
+        client.partial_reasons.append(f"{endpoint}: GitHub reported incomplete search results (search timed out)")
+    items = [item for item in first.get("items") or [] if isinstance(item, Mapping)]
+    last_page = -(-min(total, SEARCH_RESULT_CAP) // 100)
+    for page in range(2, last_page + 1):
+        payload = client.get(endpoint, {"q": query, "per_page": 100, "page": page})
+        if not isinstance(payload, Mapping) or not payload.get("items"):
+            break
+        items.extend(item for item in payload["items"] if isinstance(item, Mapping))
+    return items
+
+
+def search_all(
+    client: GitHubClient, kind: str, qualifiers: str, date_field: str, since: Optional[datetime], created_at: str | None
+) -> Optional[List[Mapping[str, Any]]]:
+    today = datetime.now(timezone.utc).date()
+    start = since.date() if since else None
+    if start is None and created_at:
+        try:
+            start = datetime.fromisoformat(created_at.replace("Z", "+00:00")).date()
+        except ValueError:
+            start = None
+    return _search_window(client, kind, qualifiers, date_field, start or date(2008, 1, 1), today)
 
 
 def _in_timeframe(timestamp: str | None, since: datetime | None) -> bool:
@@ -271,75 +333,215 @@ def _in_timeframe(timestamp: str | None, since: datetime | None) -> bool:
         return False
 
 
+def _repo_from_url(url: str) -> str:
+    """https://api.github.com/repos/{owner}/{repo} -> owner/repo"""
+    parts = urlparse(url).path.strip("/").split("/")
+    return "/".join(parts[1:3]) if len(parts) >= 3 and parts[0] == "repos" else ""
+
+
 def collect_public_data(login_value: str, since: datetime | None, scope: Iterable[str], client: GitHubClient) -> Dict[str, Any]:
-    """Collect only endpoint-exposed public metadata, with endpoint limitations retained."""
+    """Collect endpoint-exposed public metadata for one account.
+
+    Collection runs in phases so that limited budgets cut optional detail,
+    not coverage:
+
+    1. complete lists: profile, every owned repository, its languages, every
+       commit authored by the account on each default branch, and every
+       pull request / default-branch commit GitHub search attributes to the
+       account anywhere on GitHub;
+    2. commits that exist only on other branches of owned repositories;
+    3. per-commit diff statistics (one request per commit) for change volume.
+    """
     login = normalize_login(login_value)
     profile = client.get(f"/users/{login}")
     if not isinstance(profile, Mapping):
         raise GitHubAPIError("GitHub profile could not be retrieved; no report was created.")
+    login = str(profile.get("login") or login)
     scope_set = set(scope)
+    since_param = since.isoformat() if since else None
+    coverage: Dict[str, Any] = {
+        "owned_repositories_listed": 0,
+        "owned_repositories_commit_history_listed": 0,
+        "empty_repositories": 0,
+        "branches_scanned": 0,
+        "branch_scan": "not run",
+        "pull_request_source": "not run",
+        "contributed_commit_source": "not run",
+        "commits_found": 0,
+        "commits_with_change_statistics": 0,
+    }
+
+    # Phase 1a: owned repositories (all pages; forks are included and flagged).
     repos = client.pages(f"/users/{login}/repos", {"type": "owner", "sort": "updated"}) if "owned" in scope_set else []
+    coverage["owned_repositories_listed"] = len(repos)
     owned_repo_names = {str(repo.get("full_name")) for repo in repos if repo.get("full_name")}
-    events = client.pages(f"/users/{login}/events/public") if "contributed" in scope_set else []
+    owned_lower = {name.lower() for name in owned_repo_names}
+
+    def ownership_of(repository: str) -> str:
+        owner = repository.split("/")[0].lower() if repository else ""
+        return "owned" if repository.lower() in owned_lower or owner == login.lower() else "contributed"
+
+    def in_scope(ownership: str) -> bool:
+        return ownership in scope_set
+
     commits: List[Dict[str, Any]] = []
+    seen_shas: set = set()
     pulls: List[Dict[str, Any]] = []
     repo_languages: Dict[str, Dict[str, int]] = {}
+
+    def add_commit(item: Mapping[str, Any], repository: str, ownership: str, source: str) -> None:
+        sha = str(item.get("sha") or "")
+        if sha and sha in seen_shas:
+            return
+        if sha:
+            seen_shas.add(sha)
+        record = {key: value for key, value in item.items() if key != "repository"}
+        commits.append({**record, "repository": repository, "ownership": ownership, "evidence_source": source})
+
+    # Phase 1b: languages and default-branch commit history of every owned repository.
     if "owned" in scope_set:
         for repo in repos:
             name = repo.get("full_name")
             if not name:
                 continue
-            for summary in client.pages(f"/repos/{name}/commits", {"author": login, "since": since.isoformat() if since else None}, limit=1):
-                sha = summary.get("sha")
-                detail = client.get(f"/repos/{name}/commits/{sha}") if sha else None
-                if isinstance(detail, Mapping):
-                    commits.append({**detail, "repository": name, "ownership": "owned"})
-            for pull in client.pages(f"/repos/{name}/pulls", {"state": "all", "sort": "created", "direction": "desc"}, limit=1):
+            languages = client.get(f"/repos/{name}/languages")
+            if isinstance(languages, Mapping):
+                repo_languages[name] = {str(key): int(value) for key, value in languages.items() if isinstance(value, (int, float))}
+            if repo.get("size") == 0:
+                coverage["empty_repositories"] += 1
+            before = len(client.provenance)
+            listed = client.pages(
+                f"/repos/{name}/commits", {"author": login, "since": since_param}, missing_ok=(409,)
+            )
+            statuses = [entry.get("status") for entry in client.provenance[before:]]
+            if 409 in statuses:
+                coverage["empty_repositories"] += 0 if repo.get("size") == 0 else 1
+            if statuses and all(status in (200, 409) for status in statuses):
+                coverage["owned_repositories_commit_history_listed"] += 1
+            for summary in listed:
+                add_commit(summary, name, "owned", "repository commit list (default branch)")
+
+    # Phase 1c: pull requests the account opened anywhere, via search.
+    pr_items = search_all(client, "issues", f"author:{login} type:pr", "created", since, profile.get("created_at"))
+    if pr_items is not None:
+        coverage["pull_request_source"] = "search API (all public repositories)"
+        for item in pr_items:
+            repository = _repo_from_url(str(item.get("repository_url", "")))
+            ownership = ownership_of(repository)
+            if not in_scope(ownership) or not _in_timeframe(str(item.get("created_at", "")), since):
+                continue
+            merged_at = (item.get("pull_request") or {}).get("merged_at")
+            pulls.append({**item, "merged_at": merged_at, "repository": repository, "ownership": ownership})
+    elif "owned" in scope_set:
+        coverage["pull_request_source"] = "per-repository pull lists (search API unavailable; other repositories not covered)"
+        for repo in repos:
+            name = repo.get("full_name")
+            for pull in client.pages(f"/repos/{name}/pulls", {"state": "all", "sort": "created", "direction": "desc"}):
                 if (
                     str((pull.get("user") or {}).get("login", "")).lower() == login.lower()
                     and _in_timeframe(str(pull.get("created_at", "")), since)
                 ):
                     pulls.append({**pull, "repository": name, "ownership": "owned"})
-            languages = client.get(f"/repos/{name}/languages")
-            if isinstance(languages, Mapping):
-                repo_languages[name] = {str(key): int(value) for key, value in languages.items() if isinstance(value, (int, float))}
+
+    # Phase 1d: default-branch commits in repositories the account does not own.
     if "contributed" in scope_set:
-        for event in events:
-            created = str(event.get("created_at", ""))
-            if not _in_timeframe(created, since):
+        commit_items = search_all(client, "commits", f"author:{login}", "author-date", since, profile.get("created_at"))
+        if commit_items is not None:
+            coverage["contributed_commit_source"] = "search API (default branches of public repositories)"
+            for item in commit_items:
+                repository = str((item.get("repository") or {}).get("full_name", ""))
+                ownership = ownership_of(repository)
+                if in_scope(ownership):
+                    add_commit(item, repository, ownership, "commit search")
+        else:
+            coverage["contributed_commit_source"] = "unavailable (search API failed)"
+
+    # Phase 1e: recent public events (supplementary; payload formats vary).
+    events = client.pages(f"/users/{login}/events/public", limit=3) if "contributed" in scope_set else []
+    for event in events:
+        created = str(event.get("created_at", ""))
+        if not _in_timeframe(created, since):
+            continue
+        repository = str((event.get("repo") or {}).get("name", ""))
+        payload = event.get("payload") or {}
+        ownership = ownership_of(repository)
+        if event.get("type") == "PushEvent":
+            # Older payloads list commits; since late 2025 GitHub only sends
+            # head/before, and those commits are covered by phases 1b-1d.
+            for entry in payload.get("commits", []) or []:
+                sha = entry.get("sha")
+                if not (repository and sha) or sha in seen_shas:
+                    continue
+                detail = client.get(f"/repos/{repository}/commits/{sha}")
+                if isinstance(detail, Mapping) and in_scope(ownership):
+                    add_commit({**detail, "event_limited": True}, repository, ownership, "public event")
+        if (
+            event.get("type") == "PullRequestEvent"
+            and payload.get("action") == "opened"
+            and isinstance(payload.get("pull_request"), Mapping)
+            and _in_timeframe(str(payload["pull_request"].get("created_at", "")), since)
+        ):
+            pull = payload["pull_request"]
+            base_owner = str((((pull.get("base") or {}).get("repo") or {}).get("owner") or {}).get("login", ""))
+            pr_ownership = "owned" if ownership == "owned" or base_owner.lower() == login.lower() else "contributed"
+            if in_scope(pr_ownership):
+                pulls.append({**pull, "repository": repository, "ownership": pr_ownership})
+    if "contributed" in scope_set:
+        client.partial_reasons.append(
+            "GitHub search only indexes default branches of public repositories; contributions on other branches of repositories the account does not own, or to private repositories, are not visible"
+        )
+
+    # Phase 2: commits that exist only on non-default branches of owned, non-fork repositories.
+    if "owned" in scope_set:
+        coverage["branch_scan"] = "complete"
+        for repo in repos:
+            name = repo.get("full_name")
+            if not name or repo.get("fork") or repo.get("size") == 0:
                 continue
-            repository = str((event.get("repo") or {}).get("name", ""))
-            payload = event.get("payload") or {}
-            if event.get("type") == "PushEvent":
-                for entry in payload.get("commits", []) or []:
-                    sha = entry.get("sha")
-                    detail = client.get(f"/repos/{repository}/commits/{sha}") if repository and sha else None
-                    if isinstance(detail, Mapping):
-                        commits.append(
-                            {
-                                **detail,
-                                "repository": repository,
-                                "ownership": "owned" if repository in owned_repo_names else "contributed",
-                                "event_limited": True,
-                            }
-                        )
-            if (
-                event.get("type") == "PullRequestEvent"
-                and payload.get("action") == "opened"
-                and isinstance(payload.get("pull_request"), Mapping)
-                and _in_timeframe(str(payload["pull_request"].get("created_at", "")), since)
-            ):
-                pull = payload["pull_request"]
-                ownership = "owned" if repository in owned_repo_names or str((((pull.get("base") or {}).get("repo") or {}).get("owner") or {}).get("login", "")).lower() == login.lower() else "contributed"
-                pulls.append({**pull, "repository": repository, "ownership": ownership})
-    if "contributed" in scope_set:
-        client.partial_reasons.append("public events expose a limited recent history; contribution coverage is not a complete historical record")
+            if client.remaining_requests <= 0 or client.time_left() <= 0:
+                coverage["branch_scan"] = "stopped early (request or time budget)"
+                break
+            default_branch = repo.get("default_branch")
+            for branch in client.pages(f"/repos/{name}/branches", missing_ok=(409,)):
+                branch_name = branch.get("name")
+                head = str((branch.get("commit") or {}).get("sha", ""))
+                if not branch_name or branch_name == default_branch or head in seen_shas:
+                    continue
+                if client.remaining_requests <= 0 or client.time_left() <= 0:
+                    coverage["branch_scan"] = "stopped early (request or time budget)"
+                    break
+                coverage["branches_scanned"] += 1
+                for summary in client.pages(
+                    f"/repos/{name}/commits", {"sha": branch_name, "author": login, "since": since_param}, missing_ok=(409,)
+                ):
+                    add_commit(summary, name, "owned", f"repository commit list (branch {branch_name})")
+        if coverage["branch_scan"] != "complete":
+            client.partial_reasons.append("non-default branches of owned repositories were only partly scanned (request or time budget)")
+
+    # Phase 3: per-commit diff statistics for change volume (optional detail).
+    for index, item in enumerate(commits):
+        if item.get("files") is not None:
+            continue
+        if client.remaining_requests <= 0 or client.time_left() <= 0:
+            break
+        detail = client.get(f"/repos/{item['repository']}/commits/{item.get('sha')}")
+        if isinstance(detail, Mapping):
+            commits[index] = {**item, **{key: value for key, value in detail.items() if key != "repository"}}
+    coverage["commits_found"] = len(commits)
+    coverage["commits_with_change_statistics"] = sum(1 for item in commits if item.get("files") is not None)
+    if coverage["commits_with_change_statistics"] < coverage["commits_found"]:
+        client.partial_reasons.append(
+            f"change volume measured for {coverage['commits_with_change_statistics']} of {coverage['commits_found']} commits "
+            "(one API request per commit; set GITHUB_TOKEN for a higher limit)"
+        )
+
     return {
         "profile": dict(profile),
         "repos": [dict(repo) for repo in repos],
         "repo_languages": repo_languages,
         "commits": commits,
         "pulls": pulls,
+        "coverage": coverage,
         "provenance": client.provenance,
         "partial_reasons": client.partial_reasons,
         "collected_at": datetime.now(timezone.utc).isoformat(),

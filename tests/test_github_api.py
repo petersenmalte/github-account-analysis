@@ -155,6 +155,8 @@ class GitHubClientTests(unittest.TestCase):
                     {"type": "PullRequestEvent", "created_at": "2026-01-02T00:00:00Z", "repo": {"name": "elsewhere/project"}, "payload": {"action": "opened", "pull_request": pull}},
                     {"type": "PullRequestEvent", "created_at": "2026-01-04T00:00:00Z", "repo": {"name": "elsewhere/project"}, "payload": {"action": "synchronize", "pull_request": pull}},
                 ]
+            if path.startswith("/search/"):
+                return {"total_count": 0, "incomplete_results": False, "items": []}
             if path.endswith(f"/commits/{'a' * 40}"):
                 return {"sha": "a" * 40, "author": {"login": "other-person"}, "commit": {"message": "", "author": {"date": "2026-01-03T00:00:00Z"}}}
             raise AssertionError(f"Unexpected URL {url}")
@@ -174,8 +176,22 @@ class GitHubClientTests(unittest.TestCase):
                 return [{"full_name": "alice/project", "language": "Python"}]
             if path == "/repos/alice/project/commits":
                 return []
-            if path == "/repos/alice/project/pulls":
-                return [{"number": 3, "user": {"login": "alice"}, "created_at": "2026-01-03T00:00:00Z", "merged_at": "2026-01-04T00:00:00Z"}]
+            if path == "/search/issues":
+                return {
+                    "total_count": 1,
+                    "incomplete_results": False,
+                    "items": [
+                        {
+                            "number": 3,
+                            "user": {"login": "alice"},
+                            "created_at": "2026-01-03T00:00:00Z",
+                            "repository_url": "https://api.github.com/repos/alice/project",
+                            "pull_request": {"merged_at": "2026-01-04T00:00:00Z"},
+                        }
+                    ],
+                }
+            if path == "/repos/alice/project/branches":
+                return [{"name": "main", "commit": {"sha": "b" * 40}}]
             if path == "/repos/alice/project/languages":
                 return {"Python": 1200, "Shell": 300}
             raise AssertionError(f"Unexpected URL {url}")
@@ -192,3 +208,164 @@ class GitHubClientTests(unittest.TestCase):
             for row in report["metrics"]["languages_in_owned_repositories"]["byte_weighted_distribution"]
         }
         self.assertEqual(distribution, {"Python": 80.0, "Shell": 20.0})
+
+
+def _commit(sha, login="alice", date="2026-01-03T00:00:00Z", message="work"):
+    return {"sha": sha, "author": {"login": login}, "commit": {"message": message, "author": {"date": date}}}
+
+
+class CompleteCollectionTests(unittest.TestCase):
+    """Regression tests: the collector must not silently analyze a subset."""
+
+    def _collect(self, transport, scope=("owned", "contributed"), **client_kwargs):
+        with tempfile.TemporaryDirectory() as directory:
+            client = GitHubClient(cache_dir=Path(directory), transport=transport, token="", **client_kwargs)
+            data = collect_public_data("alice", None, list(scope), client)
+        return data, build_report({"username": "alice", "scope": list(scope)}, data)
+
+    def test_every_commit_page_of_every_repository_is_counted_even_without_detail_budget(self):
+        repos = [{"full_name": f"alice/r{i}", "default_branch": "main", "size": 10} for i in range(12)]
+        history = {f"alice/r{i}": [_commit(f"{i:02d}{n:038d}") for n in range(230)] for i in range(12)}
+
+        def transport(url):
+            parsed = urlparse(url)
+            path, query = parsed.path, dict(pair.split("=", 1) for pair in parsed.query.split("&") if pair)
+            if path == "/users/alice":
+                return {"login": "alice", "created_at": "2020-01-01T00:00:00Z"}
+            if path == "/users/alice/repos":
+                return repos if query.get("page") == "1" else []
+            if path.startswith("/search/"):
+                return {"total_count": 0, "incomplete_results": False, "items": []}
+            if path.endswith("/languages"):
+                return {"Python": 10}
+            if path.endswith("/branches"):
+                return [{"name": "main", "commit": {"sha": "f" * 40}}]
+            if path.endswith("/commits"):
+                name = "/".join(path.split("/")[2:4])
+                page = int(query["page"])
+                return history[name][(page - 1) * 100 : page * 100]
+            if path.startswith("/search/"):
+                return {"total_count": 0, "incomplete_results": False, "items": []}
+            if path == "/users/alice/events/public":
+                return []
+            if "/commits/" in path:
+                return {"sha": path.rsplit("/", 1)[1], "author": {"login": "alice"}, "files": []}
+            raise AssertionError(url)
+
+        data, report = self._collect(transport, max_requests=200)
+        self.assertEqual(report["metrics"]["attributable_commits"], 12 * 230)
+        self.assertEqual(data["coverage"]["owned_repositories_commit_history_listed"], 12)
+        self.assertLess(data["coverage"]["commits_with_change_statistics"], 12 * 230)
+        self.assertTrue(any("change volume measured for" in reason for reason in report["partial_reasons"]))
+
+    def test_search_splits_date_ranges_beyond_the_1000_result_cap(self):
+        seen_queries = []
+
+        def transport(url):
+            parsed = urlparse(url)
+            path = parsed.path
+            if path == "/users/alice":
+                return {"login": "alice", "created_at": "2026-01-01T00:00:00Z"}
+            if path == "/search/issues":
+                from urllib.parse import parse_qs
+
+                query = parse_qs(parsed.query)["q"][0]
+                seen_queries.append(query)
+                window = query.rsplit("created:", 1)[1]
+                start, end = window.split("..")
+                if start == "2026-01-01" and end != "2026-01-01" and len(seen_queries) == 1:
+                    return {"total_count": 1500, "items": []}
+                number = len(seen_queries)
+                return {
+                    "total_count": 1,
+                    "items": [
+                        {
+                            "number": number,
+                            "user": {"login": "alice"},
+                            "created_at": f"{start}T00:00:00Z",
+                            "repository_url": "https://api.github.com/repos/other/project",
+                            "pull_request": {"merged_at": None},
+                        }
+                    ],
+                }
+            if path == "/search/commits":
+                return {"total_count": 0, "items": []}
+            if path == "/users/alice/events/public":
+                return []
+            raise AssertionError(url)
+
+        data, report = self._collect(transport, scope=("contributed",))
+        self.assertEqual(len(seen_queries), 3)
+        self.assertEqual(report["metrics"]["opened_pull_requests"], 2)
+        self.assertEqual(report["metrics"]["contributed_repositories"], 1)
+
+    def test_commits_in_other_repositories_come_from_commit_search(self):
+        def transport(url):
+            path = urlparse(url).path
+            if path == "/users/alice":
+                return {"login": "alice", "created_at": "2026-01-01T00:00:00Z"}
+            if path == "/search/issues":
+                return {"total_count": 0, "items": []}
+            if path == "/search/commits":
+                item = _commit("c" * 40)
+                item["repository"] = {"full_name": "upstream/tool"}
+                return {"total_count": 1, "items": [item]}
+            if path == "/users/alice/events/public":
+                return []
+            if path == f"/repos/upstream/tool/commits/{'c' * 40}":
+                return {**_commit("c" * 40), "files": [{"filename": "a.py", "additions": 4, "deletions": 1}]}
+            raise AssertionError(url)
+
+        data, report = self._collect(transport, scope=("contributed",))
+        self.assertEqual(report["metrics"]["attributable_commits"], 1)
+        self.assertEqual(report["metrics"]["contributed_repositories"], 1)
+        self.assertEqual(report["metrics"]["code_change_volume"]["added_lines"], 4)
+
+    def test_pull_requests_fall_back_to_repository_lists_when_search_fails(self):
+        def transport(url):
+            path = urlparse(url).path
+            if path == "/users/alice":
+                return {"login": "alice"}
+            if path == "/users/alice/repos":
+                return [{"full_name": "alice/project", "default_branch": "main", "size": 1}]
+            if path.startswith("/search/"):
+                raise URLError("search unavailable")
+            if path == "/repos/alice/project/languages":
+                return {}
+            if path == "/repos/alice/project/commits":
+                return []
+            if path == "/repos/alice/project/branches":
+                return []
+            if path == "/repos/alice/project/pulls":
+                return [{"number": 1, "user": {"login": "alice"}, "created_at": "2026-01-03T00:00:00Z"}]
+            raise AssertionError(url)
+
+        data, report = self._collect(transport, scope=("owned",))
+        self.assertEqual(report["metrics"]["opened_pull_requests"], 1)
+        self.assertIn("per-repository", data["coverage"]["pull_request_source"])
+
+    def test_commits_only_on_feature_branches_are_found(self):
+        def transport(url):
+            parsed = urlparse(url)
+            path = parsed.path
+            if path == "/users/alice":
+                return {"login": "alice"}
+            if path == "/users/alice/repos":
+                return [{"full_name": "alice/project", "default_branch": "main", "size": 1}]
+            if path.startswith("/search/"):
+                return {"total_count": 0, "items": []}
+            if path == "/repos/alice/project/languages":
+                return {}
+            if path == "/repos/alice/project/branches":
+                return [{"name": "main", "commit": {"sha": "1" * 40}}, {"name": "feature", "commit": {"sha": "2" * 40}}]
+            if path == "/repos/alice/project/commits":
+                if "sha=feature" in parsed.query:
+                    return [_commit("1" * 40), _commit("2" * 40)]
+                return [_commit("1" * 40)]
+            if "/commits/" in path:
+                return {**_commit(path.rsplit("/", 1)[1]), "files": []}
+            raise AssertionError(url)
+
+        data, report = self._collect(transport, scope=("owned",))
+        self.assertEqual(report["metrics"]["attributable_commits"], 2)
+        self.assertEqual(data["coverage"]["branches_scanned"], 1)
