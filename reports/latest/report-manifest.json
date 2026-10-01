@@ -2,7 +2,7 @@
   "artifacts": {
     "html": "report.html",
     "pdf": "report.pdf",
-    "report_manifest_sha256": "4ae5652291b180e0841a25e10763702c206f1f12444dbcdca43ea773393a3133",
+    "report_manifest_sha256": "aafdf81cc3f179dfeb49c979ba75bad37aa121e2849d1d4fa68d43b75ac40e24",
     "trend_chart": "trend.svg"
   },
   "attribution": {
@@ -25,67 +25,67 @@
     "Repository language data excludes repositories with empty or unavailable GitHub language measurements from language-share denominators.",
     "No source failure has been recorded in the current state."
   ],
-  "generated_at_utc": "2026-09-30T03:34:37Z",
+  "generated_at_utc": "2026-10-01T03:39:01Z",
   "language_bytes": {
     "distributions": [
       {
-        "byte_weighted_share": 2.9488637536479903e-06,
+        "byte_weighted_share": 2.9719252131530806e-06,
         "equal_repository_share": 1.05936879276098e-05,
         "language": "CSS",
         "language_bytes": 18
       },
       {
-        "byte_weighted_share": 0.0012033002372524716,
-        "equal_repository_share": 0.0004758628374771301,
+        "byte_weighted_share": 0.001212710593922743,
+        "equal_repository_share": 0.00048028440683600665,
         "language": "Dockerfile",
         "language_bytes": 7345
       },
       {
-        "byte_weighted_share": 0.0007958655619567743,
-        "equal_repository_share": 0.0005268558974026242,
+        "byte_weighted_share": 0.0008020895936387592,
+        "equal_repository_share": 0.0005295365302624033,
         "language": "HTML",
         "language_bytes": 4858
       },
       {
-        "byte_weighted_share": 0.00124212694334217,
-        "equal_repository_share": 0.000491217431416147,
+        "byte_weighted_share": 0.0012518409425625922,
+        "equal_repository_share": 0.0004957816708823148,
         "language": "JavaScript",
         "language_bytes": 7582
       },
       {
-        "byte_weighted_share": 0.0004139877058593595,
+        "byte_weighted_share": 0.00041722527853543524,
         "equal_repository_share": 0.002145356157138212,
         "language": "Makefile",
         "language_bytes": 2527
       },
       {
-        "byte_weighted_share": 0.15659498634184604,
+        "byte_weighted_share": 0.1578196305566746,
         "equal_repository_share": 0.664158770967117,
         "language": "Python",
         "language_bytes": 955863
       },
       {
-        "byte_weighted_share": 0.02990442732574427,
-        "equal_repository_share": 0.011826147124220608,
+        "byte_weighted_share": 0.03013829358658539,
+        "equal_repository_share": 0.011936032002046423,
         "language": "SCSS",
         "language_bytes": 182538
       },
       {
-        "byte_weighted_share": 0.0021256392890879263,
-        "equal_repository_share": 0.0009416993517604486,
+        "byte_weighted_share": 0.0021422627578145123,
+        "equal_repository_share": 0.0009493939058169714,
         "language": "Shell",
         "language_bytes": 12975
       },
       {
-        "byte_weighted_share": 0.8077167177311574,
-        "equal_repository_share": 0.3194234965455403,
+        "byte_weighted_share": 0.8062129747650528,
+        "equal_repository_share": 0.31929425067197315,
         "language": "TypeScript",
-        "language_bytes": 4930340
+        "language_bytes": 4882974
       }
     ],
     "eligible_repositories": 3,
     "repositories_without_measured_code": 0,
-    "total_measured_language_bytes": 6104046
+    "total_measured_language_bytes": 6056680
   },
   "limitations": {
     "biases": [
@@ -114,15 +114,15 @@
     "embedded_font_stream": true,
     "page_count": 4,
     "page_one_extractable_characters": 765,
-    "uri_link_count": 38
+    "uri_link_count": 42
   },
   "population": {
     "observed_event_stream": {
       "active_selection_id": "event-selection:777b294d403bfd22b5b9804116f14a21df1764356fbd57819be3afd22b3cd9eb",
       "coverage": "observed source windows only; scoped to the recorded repository filter; not a complete commit census",
-      "successful_source_count": 7,
+      "successful_source_count": 8,
       "utc_window": {
-        "end_utc": "2026-09-29T01:00:00Z",
+        "end_utc": "2026-09-30T01:00:00Z",
         "start_utc": "2025-02-01T00:00:00Z"
       }
     },
@@ -138,8 +138,8 @@
         ],
         "selection_method": "supplied-repository-urls"
       },
-      "source_data_timestamp_utc": "2026-09-30T03:34:32Z",
-      "source_id": "panel:73e4894ed397a0c41d98449065a56d1250351065a94b6198bfd1740c27c9c072"
+      "source_data_timestamp_utc": "2026-10-01T03:38:57Z",
+      "source_id": "panel:9cfd16146d04f8b4cbc91122b1e369dbf17f8cd649901e799fdcd59b62b8647d"
     }
   },
   "reporting_language": "Declared attribution is evidence of an explicit declaration under the named rule version; it is not proof of code origin.",
@@ -368,6 +368,34 @@
       "status": "succeeded",
       "window_end_utc": "2026-09-29T01:00:00Z",
       "window_start_utc": "2026-09-29T00:00:00Z"
+    },
+    {
+      "accepted_records": 3,
+      "config_json": "{\"description\":\"A small, deterministic public repository panel. It is not a representative sample or GitHub-wide census.\",\"repositories\":[\"https://github.com/github/docs\",\"https://github.com/psf/requests\",\"https://github.com/pallets/flask\"],\"selection_method\":\"supplied-repository-urls\"}",
+      "content_sha256": "9cfd16146d04f8b4cbc91122b1e369dbf17f8cd649901e799fdcd59b62b8647d",
+      "kind": "repository-panel",
+      "message": null,
+      "observed_at_utc": "2026-10-01T03:38:57Z",
+      "records_seen": 3,
+      "source_id": "panel:9cfd16146d04f8b4cbc91122b1e369dbf17f8cd649901e799fdcd59b62b8647d",
+      "source_url": "https://api.github.com/",
+      "status": "succeeded",
+      "window_end_utc": null,
+      "window_start_utc": null
+    },
+    {
+      "accepted_records": 0,
+      "config_json": "{\"event_analysis_schema_version\":\"2\",\"event_selection_id\":\"event-selection:777b294d403bfd22b5b9804116f14a21df1764356fbd57819be3afd22b3cd9eb\",\"format\":\"gharchive-like-ndjson\",\"maximum_commit_objects\":50000,\"maximum_compressed_bytes\":262144000,\"maximum_decompressed_bytes\":1073741824,\"maximum_line_bytes\":4194304,\"maximum_records\":1000000,\"repository_filter\":[\"github/docs\",\"pallets/flask\",\"psf/requests\"],\"rule_version\":\"1.0.0\"}",
+      "content_sha256": "f787e184e72e59c815007e4676abc3207b763e763e034a26048bc1f1ef7f79dd",
+      "kind": "observed-events",
+      "message": null,
+      "observed_at_utc": "2026-10-01T03:38:59Z",
+      "records_seen": 46643,
+      "source_id": "events:105a2b39ccda89a4f4d65405e9baaa611904151b68d77aab5817aa217aea74e8",
+      "source_url": "https://data.gharchive.org/2026-09-30-0.json.gz",
+      "status": "succeeded",
+      "window_end_utc": "2026-09-30T01:00:00Z",
+      "window_start_utc": "2026-09-30T00:00:00Z"
     }
   ]
 }
