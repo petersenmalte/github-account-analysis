@@ -1,0 +1,33 @@
+@font-face {
+  font-family: "Analysis Sans";
+  src: url("assets/DejaVuSans.ttf") format("truetype");
+}
+@page {
+  size: A4;
+  margin: 15mm;
+  @bottom-center {
+    content: "github-account-analysis · " counter(page);
+    font-family: "Analysis Sans";
+    font-size: 8pt;
+  }
+}
+* { box-sizing: border-box; }
+body { color: #172033; font-family: "Analysis Sans", sans-serif; font-size: 10pt; line-height: 1.42; }
+h1 { color: #102a43; font-size: 25pt; line-height: 1.15; margin: 0 0 6pt; }
+h2 { color: #102a43; font-size: 16pt; margin: 0 0 8pt; }
+h3 { color: #243b53; font-size: 11pt; margin: 10pt 0 4pt; }
+p, li { margin-top: 0; }
+a { color: #005cc5; overflow-wrap: anywhere; }
+.subtitle { color: #486581; margin: 0 0 12pt; }
+.notice { background: #fff3cd; border: 1px solid #d39e00; padding: 7pt; }
+.metric-grid { display: flex; flex-wrap: wrap; gap: 7pt; margin: 8pt 0; }
+.metric { background: #f0f4f8; border-left: 3pt solid #268bd2; min-width: 30%; padding: 7pt; }
+.metric strong { display: block; font-size: 16pt; color: #102a43; }
+table { border-collapse: collapse; font-size: 8.6pt; margin: 7pt 0 12pt; width: 100%; }
+th, td { border: 1px solid #bcccdc; padding: 4pt; text-align: left; vertical-align: top; }
+th { background: #d9e2ec; }
+.overview { break-after: page; page-break-after: always; }
+.overview .statement { font-size: 11pt; }
+.muted { color: #627d98; }
+.source-list { font-size: 8pt; }
+.chart { max-height: 260pt; max-width: 100%; width: 100%; }

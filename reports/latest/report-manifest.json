@@ -2,7 +2,7 @@
   "artifacts": {
     "html": "report.html",
     "pdf": "report.pdf",
-    "report_manifest_sha256": "9020a809c0ed05ca7480d408b3f4c8dbfda5da677c707ace77701a9a4ed95cf0",
+    "report_manifest_sha256": "231b90e6c55154b816fc4c70973d5d7895c34af19724189cf9951c06611c62a6",
     "trend_chart": "trend.svg"
   },
   "attribution": {
@@ -25,7 +25,7 @@
     "Repository language data excludes repositories with empty or unavailable GitHub language measurements from language-share denominators.",
     "No source failure has been recorded in the current state."
   ],
-  "generated_at_utc": "2026-10-04T04:34:27Z",
+  "generated_at_utc": "2026-10-05T03:41:26Z",
   "language_bytes": {
     "distributions": [
       {
@@ -112,17 +112,17 @@
   ],
   "pdf_validation": {
     "embedded_font_stream": true,
-    "page_count": 4,
+    "page_count": 5,
     "page_one_extractable_characters": 766,
-    "uri_link_count": 54
+    "uri_link_count": 58
   },
   "population": {
     "observed_event_stream": {
       "active_selection_id": "event-selection:777b294d403bfd22b5b9804116f14a21df1764356fbd57819be3afd22b3cd9eb",
       "coverage": "observed source windows only; scoped to the recorded repository filter; not a complete commit census",
-      "successful_source_count": 11,
+      "successful_source_count": 12,
       "utc_window": {
-        "end_utc": "2026-10-03T01:00:00Z",
+        "end_utc": "2026-10-04T01:00:00Z",
         "start_utc": "2025-02-01T00:00:00Z"
       }
     },
@@ -138,8 +138,8 @@
         ],
         "selection_method": "supplied-repository-urls"
       },
-      "source_data_timestamp_utc": "2026-10-04T04:34:22Z",
-      "source_id": "panel:e0fa8e312c8cf0224fddb17af0c8d272cf2708944c48011ce937b1664b316311"
+      "source_data_timestamp_utc": "2026-10-05T03:41:22Z",
+      "source_id": "panel:62a97d515fc4d38a4aea1082c03bf4853ea3c03075e624c8f63d6c71fdcf7de8"
     }
   },
   "reporting_language": "Declared attribution is evidence of an explicit declaration under the named rule version; it is not proof of code origin.",
@@ -480,6 +480,34 @@
       "status": "succeeded",
       "window_end_utc": "2026-10-03T01:00:00Z",
       "window_start_utc": "2026-10-03T00:00:00Z"
+    },
+    {
+      "accepted_records": 3,
+      "config_json": "{\"description\":\"A small, deterministic public repository panel. It is not a representative sample or GitHub-wide census.\",\"repositories\":[\"https://github.com/github/docs\",\"https://github.com/psf/requests\",\"https://github.com/pallets/flask\"],\"selection_method\":\"supplied-repository-urls\"}",
+      "content_sha256": "62a97d515fc4d38a4aea1082c03bf4853ea3c03075e624c8f63d6c71fdcf7de8",
+      "kind": "repository-panel",
+      "message": null,
+      "observed_at_utc": "2026-10-05T03:41:22Z",
+      "records_seen": 3,
+      "source_id": "panel:62a97d515fc4d38a4aea1082c03bf4853ea3c03075e624c8f63d6c71fdcf7de8",
+      "source_url": "https://api.github.com/",
+      "status": "succeeded",
+      "window_end_utc": null,
+      "window_start_utc": null
+    },
+    {
+      "accepted_records": 0,
+      "config_json": "{\"event_analysis_schema_version\":\"2\",\"event_selection_id\":\"event-selection:777b294d403bfd22b5b9804116f14a21df1764356fbd57819be3afd22b3cd9eb\",\"format\":\"gharchive-like-ndjson\",\"maximum_commit_objects\":50000,\"maximum_compressed_bytes\":262144000,\"maximum_decompressed_bytes\":1073741824,\"maximum_line_bytes\":4194304,\"maximum_records\":1000000,\"repository_filter\":[\"github/docs\",\"pallets/flask\",\"psf/requests\"],\"rule_version\":\"1.0.0\"}",
+      "content_sha256": "1cc15ad95b47ee6aabce1945d118e2bd403c717ec51734977a82a6adf499620c",
+      "kind": "observed-events",
+      "message": null,
+      "observed_at_utc": "2026-10-05T03:41:25Z",
+      "records_seen": 67855,
+      "source_id": "events:c47ad79819b443e258281dda6b7bba4afa998e794d0bebfe2fd6e4f584cfb6bf",
+      "source_url": "https://data.gharchive.org/2026-10-04-0.json.gz",
+      "status": "succeeded",
+      "window_end_utc": "2026-10-04T01:00:00Z",
+      "window_start_utc": "2026-10-04T00:00:00Z"
     }
   ]
 }
