@@ -1,7 +1,7 @@
 {
-  "generated_at_utc": "2026-10-12T03:45:09Z",
+  "generated_at_utc": "2026-10-13T03:40:28Z",
   "has_recorded_source_failures": false,
-  "latest_panel_source_id": "panel:af24f00132b19d5d0c1893084e2a1be1f7f502c7e759b5fb18aeb3be923cf0d1",
+  "latest_panel_source_id": "panel:d083bd22fec5e1fc1d58fccc3582459274b4e116f86031ede1de5b4b6ff346f8",
   "schema_version": "current-status/v1",
   "source_statuses": [
     {
@@ -603,6 +603,36 @@
       "status": "succeeded",
       "window_end_utc": "2026-10-11T01:00:00Z",
       "window_start_utc": "2026-10-11T00:00:00Z"
+    },
+    {
+      "accepted_records": 3,
+      "content_sha256": "d083bd22fec5e1fc1d58fccc3582459274b4e116f86031ede1de5b4b6ff346f8",
+      "created_at_utc": "2026-10-13T03:40:25Z",
+      "input_path": null,
+      "kind": "repository-panel",
+      "message": null,
+      "observed_at_utc": "2026-10-13T03:40:23Z",
+      "records_seen": 3,
+      "source_id": "panel:d083bd22fec5e1fc1d58fccc3582459274b4e116f86031ede1de5b4b6ff346f8",
+      "source_url": "https://api.github.com/",
+      "status": "succeeded",
+      "window_end_utc": null,
+      "window_start_utc": null
+    },
+    {
+      "accepted_records": 0,
+      "content_sha256": "8b9f60ca9f2a8f440463f917e965fade904162e2914795a857247bca09c7f0a9",
+      "created_at_utc": "2026-10-13T03:40:28Z",
+      "input_path": "data/inbox/2026-10-12-0.json.gz",
+      "kind": "observed-events",
+      "message": null,
+      "observed_at_utc": "2026-10-13T03:40:27Z",
+      "records_seen": 72794,
+      "source_id": "events:95f82886545a4bd6474dcaaa6243d277b801a3d2e8d0098ee51819736130d6ff",
+      "source_url": "https://data.gharchive.org/2026-10-12-0.json.gz",
+      "status": "succeeded",
+      "window_end_utc": "2026-10-12T01:00:00Z",
+      "window_start_utc": "2026-10-12T00:00:00Z"
     }
   ],
   "staleness_note": "No recorded source failures."
