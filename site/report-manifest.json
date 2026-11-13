@@ -2,7 +2,7 @@
   "artifacts": {
     "html": "report.html",
     "pdf": "report.pdf",
-    "report_manifest_sha256": "f3fb2e0e4f6e27718f9bcdb6834607c764bea9b0797ccd3c08ba2ac2860738c7",
+    "report_manifest_sha256": "589ca37600d98c7b1403e402eca19371c0c0306dda7f63b787fcc1c7fc493218",
     "trend_chart": "trend.svg"
   },
   "attribution": {
@@ -25,7 +25,7 @@
     "Repository language data excludes repositories with empty or unavailable GitHub language measurements from language-share denominators.",
     "No source failure has been recorded in the current state."
   ],
-  "generated_at_utc": "2026-11-12T03:21:49Z",
+  "generated_at_utc": "2026-11-13T03:21:43Z",
   "language_bytes": {
     "distributions": [
       {
@@ -114,15 +114,15 @@
     "embedded_font_stream": true,
     "page_count": 9,
     "page_one_extractable_characters": 766,
-    "uri_link_count": 210
+    "uri_link_count": 214
   },
   "population": {
     "observed_event_stream": {
       "active_selection_id": "event-selection:777b294d403bfd22b5b9804116f14a21df1764356fbd57819be3afd22b3cd9eb",
       "coverage": "observed source windows only; scoped to the recorded repository filter; not a complete commit census",
-      "successful_source_count": 50,
+      "successful_source_count": 51,
       "utc_window": {
-        "end_utc": "2026-11-11T01:00:00Z",
+        "end_utc": "2026-11-12T01:00:00Z",
         "start_utc": "2025-02-01T00:00:00Z"
       }
     },
@@ -138,8 +138,8 @@
         ],
         "selection_method": "supplied-repository-urls"
       },
-      "source_data_timestamp_utc": "2026-11-12T03:21:45Z",
-      "source_id": "panel:d89cbbbba61c4ff8192fb193490cb8e7cebcaa980828325da9d3999aae5edca8"
+      "source_data_timestamp_utc": "2026-11-13T03:21:40Z",
+      "source_id": "panel:48b9a6daf2e131d471c75695135cdfe574dc7d5987d5b5a865c39c19a6230271"
     }
   },
   "reporting_language": "Declared attribution is evidence of an explicit declaration under the named rule version; it is not proof of code origin.",
@@ -1572,6 +1572,34 @@
       "status": "succeeded",
       "window_end_utc": "2026-11-11T01:00:00Z",
       "window_start_utc": "2026-11-11T00:00:00Z"
+    },
+    {
+      "accepted_records": 3,
+      "config_json": "{\"description\":\"A small, deterministic public repository panel. It is not a representative sample or GitHub-wide census.\",\"repositories\":[\"https://github.com/github/docs\",\"https://github.com/psf/requests\",\"https://github.com/pallets/flask\"],\"selection_method\":\"supplied-repository-urls\"}",
+      "content_sha256": "48b9a6daf2e131d471c75695135cdfe574dc7d5987d5b5a865c39c19a6230271",
+      "kind": "repository-panel",
+      "message": null,
+      "observed_at_utc": "2026-11-13T03:21:40Z",
+      "records_seen": 3,
+      "source_id": "panel:48b9a6daf2e131d471c75695135cdfe574dc7d5987d5b5a865c39c19a6230271",
+      "source_url": "https://api.github.com/",
+      "status": "succeeded",
+      "window_end_utc": null,
+      "window_start_utc": null
+    },
+    {
+      "accepted_records": 0,
+      "config_json": "{\"event_analysis_schema_version\":\"2\",\"event_selection_id\":\"event-selection:777b294d403bfd22b5b9804116f14a21df1764356fbd57819be3afd22b3cd9eb\",\"format\":\"gharchive-like-ndjson\",\"maximum_commit_objects\":50000,\"maximum_compressed_bytes\":262144000,\"maximum_decompressed_bytes\":1073741824,\"maximum_line_bytes\":4194304,\"maximum_records\":1000000,\"repository_filter\":[\"github/docs\",\"pallets/flask\",\"psf/requests\"],\"rule_version\":\"1.0.0\"}",
+      "content_sha256": "e7847920d567d380e35b81d887f3f0bfe51c82444bba22169e820be4291acf74",
+      "kind": "observed-events",
+      "message": null,
+      "observed_at_utc": "2026-11-13T03:21:43Z",
+      "records_seen": 4172,
+      "source_id": "events:f20b4648af0075e442943988b1c4c6e777eadd48e44ebf7293ad61939f012c7c",
+      "source_url": "https://data.gharchive.org/2026-11-12-0.json.gz",
+      "status": "succeeded",
+      "window_end_utc": "2026-11-12T01:00:00Z",
+      "window_start_utc": "2026-11-12T00:00:00Z"
     }
   ]
 }
